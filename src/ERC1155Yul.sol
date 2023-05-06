@@ -21,6 +21,58 @@ object "ERC1155Yul" {
      */
         code {
 
+            function mint(account, amount) {
+                require(calledByOwner())
+
+                mintTokens(amount)
+                addToBalance(account, amount)
+                emitTransfer(0, account, amount)
+            }
+
+            /* -------------------------------------------------- */
+            /* ---------- CALLDATA DECODING FUNCTIONS ----------- */
+            /* -------------------------------------------------- */
+            // @dev grabs the function selector from the calldata
+            function getSelector() -> selector {
+                selector := div(calldataload(0), 0x100000000000000000000000000000000000000000000000000000000)
+            }
+
+            // @dev masks 12 bytes to decode an address from the calldata (address is 20bytes)
+            function decodeAsAddress(offset) -> value {
+                value := decodeAsUint(offset)
+                if iszero(iszero(and(v, not(0xffffffffffffffffffffffffffffffffffffffff)))) {
+                    revert(0, 0)
+                }
+            }
+
+            // @dev starts at 4th byte to skip function selector and decodes theuint of the calldata
+            function decodeAsUint(offset) -> value {
+                let pos := add(4, mul(offset, 0x20))
+                if lt(calldatasize(), add(pos, 0x20)) {
+                    revert(0, 0)
+                }
+                value := calldataload(pos)
+            }
+            /* -------------------------------------------------- */
+            /* ---------- CALLDATA ENCODING FUNCTIONS ----------- */
+            /* -------------------------------------------------- */
+            // @dev returns memory data (from offset, size of return value)
+            // @param from (starting address in memory) to return, e.g. 0x00
+            // @param to (size of the return value), e.g. 0x20 for 32 bytes 0x40 for 64 bytes
+            function returnMemory(offset, size) {
+                return(offset, size)
+            }
+
+            // @dev stores the value in memory 0x00 and returns that part of memory
+            function returnUint(v) {
+                mstore(0, v)
+                return(0, 0x20)
+            }
+
+            // @dev helper functino that returns true (uint of 1 === true)
+            function returnTrue() {
+                returnUint(1)
+            }
         }
     }
 
