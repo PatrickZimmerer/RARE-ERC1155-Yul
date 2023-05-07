@@ -20,14 +20,22 @@ object "ERC1155Yul" {
      * @notice Deployed contracts runtime code
      */
         code {
+            
+// functions we need to support:  safeTransferFrom(**address** _from, **address** _to, **uint256** _id, **uint256** _value, **bytes** **calldata** _data) **external**;`
+// functions we need to support:  safeTransferFrom(**address** _from, **address** _to, **uint256** _id, **uint256** _value, **bytes** **calldata** _data) **external**;`
+// functions we need to support:  safeBatchTransferFrom(**address** _from, **address** _to, **uint256**[] **calldata** _ids, **uint256**[] **calldata** _values, **bytes** **calldata** _data) **external**;`
+// functions we need to support:  balanceOf(**address** _owner, **uint256** _id) **external** **view** **returns** (**uint256**);`
+// functions we need to support:  balanceOfBatch(**address**[] **calldata** _owners, **uint256**[] **calldata** _ids) **external** **view** **returns** (**uint256**[] **memory**);`
+// functions we need to support:  setApprovalForAll(**address** _operator, **bool** _approved) **external**;`
+// functions we need to support:  isApprovedForAll(**address** _owner, **address** _operator) **external** **view** **returns** (**bool**);`
 
-            function mint(account, amount) {
-                require(calledByOwner())
+            // function mint(account, amount) {
+            //     require(calledByOwner())
 
-                mintTokens(amount)
-                addToBalance(account, amount)
-                emitTransfer(0, account, amount)
-            }
+            //     mintTokens(amount)
+            //     addToBalance(account, amount)
+            //     emitTransfer(0, account, amount)
+            // }
 
             /* -------------------------------------------------- */
             /* ---------- CALLDATA DECODING FUNCTIONS ----------- */
@@ -40,7 +48,7 @@ object "ERC1155Yul" {
             // @dev masks 12 bytes to decode an address from the calldata (address is 20bytes)
             function decodeAsAddress(offset) -> value {
                 value := decodeAsUint(offset)
-                if iszero(iszero(and(v, not(0xffffffffffffffffffffffffffffffffffffffff)))) {
+                if iszero(iszero(and(value, not(0xffffffffffffffffffffffffffffffffffffffff)))) {
                     revert(0, 0)
                 }
             }
