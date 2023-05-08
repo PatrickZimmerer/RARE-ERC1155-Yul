@@ -37,9 +37,9 @@ object "ERC1155Yul" {
             //     emitTransfer(0, account, amount)
             // }
 
-            /* -------------------------------------------------- */
-            /* ---------- CALLDATA DECODING FUNCTIONS ----------- */
-            /* -------------------------------------------------- */
+            /* ---------------------------------------------------------- */
+            /* -------- HELPER FUNCTIONS FOR CALLDATA DECODING  --------- */
+            /* ---------------------------------------------------------- */
             // @dev grabs the function selector from the calldata
             function getSelector() -> selector {
                 selector := div(calldataload(0), 0x100000000000000000000000000000000000000000000000000000000)
@@ -61,9 +61,10 @@ object "ERC1155Yul" {
                 }
                 value := calldataload(pos)
             }
-            /* -------------------------------------------------- */
-            /* ---------- CALLDATA ENCODING FUNCTIONS ----------- */
-            /* -------------------------------------------------- */
+
+            /* ------------------------------------------------------- */
+            /* ---------- HELPER FUNCTIONS FOR RETURN DATA ----------- */
+            /* ------------------------------------------------------- */
             // @dev returns memory data (from offset, size of return value)
             // @param from (starting address in memory) to return, e.g. 0x00
             // @param to (size of the return value), e.g. 0x20 for 32 bytes 0x40 for 64 bytes
