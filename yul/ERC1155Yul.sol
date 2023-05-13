@@ -20,7 +20,15 @@ object "ERC1155Yul" {
      * @notice Deployed contracts runtime code
      */
         code {
-            
+
+            /* ---------------------------------------------------------- */
+            /* --------------------- SETUP STORAGE ---------------------- */
+            /* ---------------------------------------------------------- */
+            function balancesMappingSlot() -> p { p := 0 }  // balances of                   || address => address => uint256
+            function operatorApprovalSlot() -> p { p := 1 } // approved operators for tokens || address => address => bool
+            function uriLengthSlot() -> p { p := 2 } // it stores length of string passed into constructor, next slots => value
+
+
 // functions we need to support:  safeTransferFrom(**address** _from, **address** _to, **uint256** _id, **uint256** _value, **bytes** **calldata** _data) **external**;`
 // functions we need to support:  safeTransferFrom(**address** _from, **address** _to, **uint256** _id, **uint256** _value, **bytes** **calldata** _data) **external**;`
 // functions we need to support:  safeBatchTransferFrom(**address** _from, **address** _to, **uint256**[] **calldata** _ids, **uint256**[] **calldata** _values, **bytes** **calldata** _data) **external**;`
