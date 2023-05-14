@@ -53,7 +53,9 @@ object "ERC1155Yul" {
                 mstore(0x40, id)
                 let slot := keccak256(0x00, 0x60)
                 // _balances[id][to] += amount;
-                sstore(slot, amount)
+                let oldBalance := sload(slot)
+                let newBalance := safeAdd(oldBalance, amount)
+                sstore(slot, newBalance)
 
 
                 // _beforeTokenTransfer(operator, address(0), to, ids, amounts, data);
@@ -68,8 +70,28 @@ object "ERC1155Yul" {
 
             // mintBatch(address,uint256[],uint256[],bytes) 
             case 0x1f7fdffa {
+                // function _batchMint(
+                //     address to,
+                //     uint256[] memory ids,
+                //     uint256[] memory amounts,
+                //     bytes memory data
+                // ) internal virtual {
+                //     uint256 idsLength = ids.length; // Saves MLOADs.
 
+                //     require(idsLength == amounts.length, "LENGTH_MISMATCH");
+
+                //     for (uint256 i = 0; i < idsLength; ) {
+                //     balanceOf[to][ids[i]] += amounts[i];
+
+                //     // An array can't have a total length
+                //     // larger than the max uint256 value.
+                //     unchecked {
+                //         ++i;
+                //     }
+                // let to := decodeAsAddress(0)
+                // let idsLength := 1
             }
+            
 
             // balanceOf(address,uint256)
             case 0x00fdd58e {
