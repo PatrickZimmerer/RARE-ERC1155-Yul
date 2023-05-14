@@ -24,18 +24,45 @@ object "ERC1155Yul" {
             /* ---------------------------------------------------------- */
             /* --------------------- SETUP STORAGE ---------------------- */
             /* ---------------------------------------------------------- */
-            function balancesMappingSlot() -> p { p := 0 }  // balances of                   || address => address => uint256
-            function operatorApprovalSlot() -> p { p := 1 } // approved operators for tokens || address => address => bool
+            function balancesMappingSlot() -> p { p := 0 }  // balances of         || address => address => uint256
+            function operatorApprovalSlot() -> p { p := 1 } // approved operators  || address => address => bool
             function uriLengthSlot() -> p { p := 2 } // it stores length of string passed into constructor, next slots => value
 
-
+            // STORAGE LAYOUT WILL LOOK LIKE THIS
+            // 0x00 - 0x20 => Scratch Space
+            // 0x20 - 0x40 => Scratch Space
+            // 0x40 - 0x60 => Scratch Space
+            // 0x60 - 0x80 => Free memory pointer
+            // 0x80 - .... => Free memory
+            
             /* ------------------------------------------------------- */
             /* ----------------- FUNCTION SELECTORS ------------------ */
             /* ------------------------------------------------------- */
 
-            switch findSelector()
+            switch getSelector()
             // mint(address,uint256,uint256,bytes)
             case 0x731133e9 {
+                let to := decodeAsAddress(0)
+                // require(to != address(0), "ERC1155: mint to the zero address");
+                require(to)
+                let id := decodeAsAddress(1)
+                let amount := decodeAsUint(2)
+                // get storage slot of the address being minted to 
+                mstore(0x00, balancesMappingSlot())
+                mstore(0x20, to)
+                mstore(0x40, id)
+                let slot := keccak256(0x00, 0x60)
+                // _balances[id][to] += amount;
+                sstore(slot, amount)
+
+
+                // _beforeTokenTransfer(operator, address(0), to, ids, amounts, data);
+
+                // emit TransferSingle(operator, address(0), to, id, amount);
+
+                // _afterTokenTransfer(operator, address(0), to, ids, amounts, data);
+
+                // _doSafeTransferAcceptanceCheck(operator, address(0), to, id, amount, data);
 
             }
 
@@ -46,6 +73,17 @@ object "ERC1155Yul" {
 
             // balanceOf(address,uint256)
             case 0x00fdd58e {
+                let account := decodeAsAddress(0)
+                // revert if zero address
+                require(account)
+                let id := decodeAsAddress(1)
+                // get storage slot of the address being minted to 
+                mstore(0x00, balancesMappingSlot())
+                mstore(0x20, account)
+                mstore(0x40, id)
+                let slot := keccak256(0x00, 0x60)
+                let res := sload(slot)
+                returnUint(res)
                 // function balanceOf(address account, uint256 id) public view virtual override returns (uint256) {
                 //     require(account != address(0), "ERC1155: address zero is not a valid owner");
                 //     return _balances[id][account];
@@ -74,7 +112,7 @@ object "ERC1155Yul" {
             }
 
             // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)
-            case 0xf242432a  {
+            case 0x2eb2c2d6  {
 
             }
             // If no function selector was found we revert (fallback not implemented)
@@ -135,20 +173,25 @@ object "ERC1155Yul" {
             function lte(a, b) -> r {
                 r := iszero(gt(a, b))
             }
-            
+
             function gte(a, b) -> r {
                 r := iszero(lt(a, b))
-            }
-
-            function safeAdd(a, b) -> r {
-                r := add(a, b)
-                if or(lt(r, a), lt(r, b)) { revert(0, 0) }
             }
 
             function require(condition) {
                 if iszero(condition) { revert(0, 0) }
             }
 
+            // Overflow Protection / Safe Math 
+            function safeAdd(a, b) -> r {
+                r := add(a, b)
+                if or(lt(r, a), lt(r, b)) { revert(0, 0) }
+            }
+
+            function safeSub(a, b) -> r {
+                r := sub(a, b)
+                if gt(r, a) { revert(0, 0) }
+            }
         }
     }
 
