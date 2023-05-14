@@ -47,12 +47,13 @@ object "ERC1155Yul" {
                 // could do this in the slot getter function but didn't to improve readability
                 let id := decodeAsAddress(1)            
                 let amount := decodeAsUint(2)           
-                let slot := getBalanceOfSlot(to,id)     // get storage slot of the address
+                let slot := getBalanceOfSlot(to, id)     // get storage slot of the address
                 let oldBalance := sload(slot)
                 let newBalance := safeAdd(oldBalance, amount)
                 sstore(slot, newBalance)
-                // TODO: EMIT EVENTS
-                // emit TransferSingle(operator, address(0), to, id, amount);
+                // operator is the caller when minting, from is zero addr, rest is given as input
+                // emit TransferSingle(operator, from, to, id, amount);
+                emitTransferSingle(caller(), 0, to, id, amount)
             }
 
             // mintBatch(address,uint256[],uint256[],bytes) 
@@ -85,7 +86,7 @@ object "ERC1155Yul" {
                 let account := decodeAsAddress(0)
                 require(account)                         // revert if zero address
                 let id := decodeAsAddress(1)
-                let slot := getBalanceOfSlot(account,id)
+                let slot := getBalanceOfSlot(account, id)
                 let res := sload(slot)                  // get value of slot
                 returnUint(res)                         // saves value to mem and returns
             }
@@ -97,7 +98,12 @@ object "ERC1155Yul" {
 
             // setApprovalForAll(address,bool)
             case 0xa22cb465 {
-
+                let operator := decodeAsAddress(0)
+                let isApproved := decodeAsUint(1)
+                let slot := getOperatorApprovedForAllSlot(caller(), operator)
+                sstore(slot, isApproved)
+                emitApprovalForAll(caller(), operator, isApproved)
+                return(0, 0)
             }
 
             // isApprovedForAll(address,address)
@@ -124,19 +130,53 @@ object "ERC1155Yul" {
             /* ---------------------------------------------------------- */
             // gets the slot where balanceOf the "account" address is in the nested mapping
             function getBalanceOfSlot(account, id) -> slot {
-                mstore(0x00, balancesMappingSlot())
-                mstore(0x20, account)
-                mstore(0x40, id)
-                slot := keccak256(0x00, 0x60)
+                mstore(0x00, balancesMappingSlot())             // store storage slot of mapping
+                mstore(0x20, account)                           // store account addr (1st depth of mapping)
+                mstore(0x40, id)                                // store tokenId (2nd depth)
+                slot := keccak256(0x00, 0x60)                   // get hash of those => storage slot
             }
 
             // gets the slot where the bool for approval is in the nested mapping
             function getOperatorApprovedForAllSlot(account, operator) -> slot {
-                mstore(0x00, operatorApprovedForAllSlot())
-                mstore(0x20, account)
-                mstore(0x40, operator)
-                slot := keccak256(0x00, 0x60)
+                mstore(0x00, operatorApprovedForAllSlot())      // store storage slot of mapping
+                mstore(0x20, account)                           // store account addr (1st depth of mapping)
+                mstore(0x40, operator)                          // store operator addr (2nd depth)
+                slot := keccak256(0x00, 0x60)                   // get hash of those => storage slot
             }
+
+            /* ---------------------------------------------------------- */
+            /* -------------- EMIT EVENTS HELPER FUNCTIONS -------------- */
+            /* ---------------------------------------------------------- */
+            function emitTransferSingle(operator, from, to, id, amount) {
+                // keccak256 of "TransferSingle(address,address,address,uint256,uint256)"
+                let signatureHash := 0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62
+                // use scratch space to store non indexed values from 0x00 - 0x40
+                mstore(0, id)
+                mstore(0x20, amount)
+                log4(0, 0x40, signatureHash, operator, from, to)
+            }
+
+            function emitTransferBatch(operator, from, to, ids, amounts) {
+                // keccak256 of "TransferBatch(address,address,address,uint256[],uint256[])"
+                let signatureHash := 0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb
+                // TODO Store values of arrays in memory and get length to log4 later
+            }
+
+            function emitApprovalForAll(owner, operator, isApproved) {
+                // keccak256 of "ApprovalForAll(address,address,bool)"
+                let signatureHash := 0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31
+                mstore(0, isApproved)
+                log3(0, 0x20, signatureHash, owner, operator)
+            }
+
+            function emitURI(stringValue, id) {
+                // keccak256 of "URI(string,uint256)"
+                let signatureHash := 0x6bb7ff708619ba0610cba295a58592e0451dee2622938c8755667688daf3529b
+                // TODO Store values of arrays in memory and get length to log2 later
+            }
+            
+            
+            
 
 
             /* ---------------------------------------------------------- */
