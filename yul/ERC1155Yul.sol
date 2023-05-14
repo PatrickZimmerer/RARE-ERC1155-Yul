@@ -25,7 +25,7 @@ object "ERC1155Yul" {
             /* --------------------- SETUP STORAGE ---------------------- */
             /* ---------------------------------------------------------- */
             function balancesMappingSlot() -> p { p := 0 }  // balances of         || address => address => uint256
-            function operatorApprovalSlot() -> p { p := 1 } // approved operators  || address => address => bool
+            function operatorApprovedForAllSlot() -> p { p := 1 } // approved operators  || address => address => bool
             function uriLengthSlot() -> p { p := 2 } // it stores length of string passed into constructor, next slots => value
 
             // STORAGE LAYOUT WILL LOOK LIKE THIS
@@ -48,10 +48,7 @@ object "ERC1155Yul" {
                 let id := decodeAsAddress(1)
                 let amount := decodeAsUint(2)
                 // get storage slot of the address being minted to 
-                mstore(0x00, balancesMappingSlot())
-                mstore(0x20, to)
-                mstore(0x40, id)
-                let slot := keccak256(0x00, 0x60)
+                let slot := getBalanceOfSlot(to,id)
                 // _balances[id][to] += amount;
                 let oldBalance := sload(slot)
                 let newBalance := safeAdd(oldBalance, amount)
@@ -140,6 +137,25 @@ object "ERC1155Yul" {
             // If no function selector was found we revert (fallback not implemented)
             default {
                 revert(0, 0)
+            }
+
+            /* ---------------------------------------------------------- */
+            /* ---------------- STORAGE HELPER FUNCTIONS ---------------- */
+            /* ---------------------------------------------------------- */
+            // gets the slot where balanceOf the "account" address is in the nested mapping
+            function getBalanceOfSlot(account, id) -> slot {
+                mstore(0x00, balancesMappingSlot())
+                mstore(0x20, account)
+                mstore(0x40, id)
+                slot := keccak256(0x00, 0x60)
+            }
+            
+            // gets the slot where the bool the "account" address is in the nested mapping
+            function getOperatorApprovedForAllSlot(account, operator) -> slot {
+                mstore(0x00, operatorApprovedForAllSlot())
+                mstore(0x20, account)
+                mstore(0x40, operator)
+                slot := keccak256(0x00, 0x60)
             }
 
 

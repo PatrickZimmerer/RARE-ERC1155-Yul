@@ -34,7 +34,8 @@ contract ERC1155YulTest is Test {
         // Bound fuzzer to nonZero values to avoid false positives
         vm.assume(to != address(0) && amount != 0 && id <= type(uint160).max);
         // we need to bound to below uint160.max since the storage would overflow
-        // since the mapping from storageSlot 0 is already a pretty big number
+        // since the hash from storageSlot 0 is already a pretty big number so there
+        // is only a certain amount of "ids" we can store from that point in storage
         bytes memory data;
         bool success;
         bytes memory callData = abi.encodeWithSignature(
