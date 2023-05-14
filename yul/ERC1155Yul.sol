@@ -43,26 +43,16 @@ object "ERC1155Yul" {
             // mint(address,uint256,uint256,bytes)
             case 0x731133e9 {
                 let to := decodeAsAddress(0)
-                // require(to != address(0), "ERC1155: mint to the zero address");
-                require(to)
-                let id := decodeAsAddress(1)
-                let amount := decodeAsUint(2)
-                // get storage slot of the address being minted to 
-                let slot := getBalanceOfSlot(to,id)
-                // _balances[id][to] += amount;
+                require(to)                             // checks for zero address and reverts
+                // could do this in the slot getter function but didn't to improve readability
+                let id := decodeAsAddress(1)            
+                let amount := decodeAsUint(2)           
+                let slot := getBalanceOfSlot(to,id)     // get storage slot of the address
                 let oldBalance := sload(slot)
                 let newBalance := safeAdd(oldBalance, amount)
                 sstore(slot, newBalance)
-
-
-                // _beforeTokenTransfer(operator, address(0), to, ids, amounts, data);
-
+                // TODO: EMIT EVENTS
                 // emit TransferSingle(operator, address(0), to, id, amount);
-
-                // _afterTokenTransfer(operator, address(0), to, ids, amounts, data);
-
-                // _doSafeTransferAcceptanceCheck(operator, address(0), to, id, amount, data);
-
             }
 
             // mintBatch(address,uint256[],uint256[],bytes) 
@@ -93,21 +83,11 @@ object "ERC1155Yul" {
             // balanceOf(address,uint256)
             case 0x00fdd58e {
                 let account := decodeAsAddress(0)
-                // revert if zero address
-                require(account)
+                require(account)                         // revert if zero address
                 let id := decodeAsAddress(1)
-                // get storage slot of the address being minted to 
-                mstore(0x00, balancesMappingSlot())
-                mstore(0x20, account)
-                mstore(0x40, id)
-                let slot := keccak256(0x00, 0x60)
-                let res := sload(slot)
-                returnUint(res)
-                // function balanceOf(address account, uint256 id) public view virtual override returns (uint256) {
-                //     require(account != address(0), "ERC1155: address zero is not a valid owner");
-                //     return _balances[id][account];
-                // }
-
+                let slot := getBalanceOfSlot(account,id)
+                let res := sload(slot)                  // get value of slot
+                returnUint(res)                         // saves value to mem and returns
             }
 
             // balanceOfBatch(address[] memory, uint256[] memory)
@@ -149,8 +129,8 @@ object "ERC1155Yul" {
                 mstore(0x40, id)
                 slot := keccak256(0x00, 0x60)
             }
-            
-            // gets the slot where the bool the "account" address is in the nested mapping
+
+            // gets the slot where the bool for approval is in the nested mapping
             function getOperatorApprovedForAllSlot(account, operator) -> slot {
                 mstore(0x00, operatorApprovedForAllSlot())
                 mstore(0x20, account)
