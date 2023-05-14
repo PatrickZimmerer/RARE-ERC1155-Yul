@@ -29,21 +29,55 @@ object "ERC1155Yul" {
             function uriLengthSlot() -> p { p := 2 } // it stores length of string passed into constructor, next slots => value
 
 
-// functions we need to support:  safeTransferFrom(**address** _from, **address** _to, **uint256** _id, **uint256** _value, **bytes** **calldata** _data) **external**;`
-// functions we need to support:  safeTransferFrom(**address** _from, **address** _to, **uint256** _id, **uint256** _value, **bytes** **calldata** _data) **external**;`
-// functions we need to support:  safeBatchTransferFrom(**address** _from, **address** _to, **uint256**[] **calldata** _ids, **uint256**[] **calldata** _values, **bytes** **calldata** _data) **external**;`
-// functions we need to support:  balanceOf(**address** _owner, **uint256** _id) **external** **view** **returns** (**uint256**);`
-// functions we need to support:  balanceOfBatch(**address**[] **calldata** _owners, **uint256**[] **calldata** _ids) **external** **view** **returns** (**uint256**[] **memory**);`
-// functions we need to support:  setApprovalForAll(**address** _operator, **bool** _approved) **external**;`
-// functions we need to support:  isApprovedForAll(**address** _owner, **address** _operator) **external** **view** **returns** (**bool**);`
+            /* ------------------------------------------------------- */
+            /* ----------------- FUNCTION SELECTORS ------------------ */
+            /* ------------------------------------------------------- */
 
-            // function mint(account, amount) {
-            //     require(calledByOwner())
+            switch findSelector()
+            // mint(address,uint256,uint256,bytes)
+            case 0x731133e9 {
 
-            //     mintTokens(amount)
-            //     addToBalance(account, amount)
-            //     emitTransfer(0, account, amount)
-            // }
+            }
+
+            // mintBatch(address,uint256[],uint256[],bytes) 
+            case 0x1f7fdffa {
+
+            }
+
+            // balanceOf(address,uint256)
+            case 0x00fdd58e {
+
+            }
+
+            // balanceOfBatch(address[] memory, uint256[] memory)
+            case 0x4e1273f4 {
+
+            }
+
+            // setApprovalForAll(address,bool)
+            case 0xa22cb465 {
+
+            }
+
+            // isApprovedForAll(address,address)
+            case 0xe985e9c5 {
+
+            }
+            
+            // safeTransferFrom(address,address,uint256,uint256,bytes)
+            case 0xf242432a  {
+
+            }
+
+            // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)
+            case 0xf242432a  {
+
+            }
+            // If no function selector was found we revert (fallback not implemented)
+            default {
+                revert(0, 0)
+            }
+
 
             /* ---------------------------------------------------------- */
             /* -------- HELPER FUNCTIONS FOR CALLDATA DECODING  --------- */
@@ -90,6 +124,7 @@ object "ERC1155Yul" {
             function returnTrue() {
                 returnUint(1)
             }
+
         }
     }
 
