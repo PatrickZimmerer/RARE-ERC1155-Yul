@@ -108,7 +108,11 @@ object "ERC1155Yul" {
 
             // isApprovedForAll(address,address)
             case 0xe985e9c5 {
-
+                let operator := decodeAsAddress(1)
+                let slot := getOperatorApprovedForAllSlot(caller(), operator)
+                let isApproved := sload(slot)
+                mstore(0x00, isApproved)
+                return(0, 0x20)
             }
             
             // safeTransferFrom(address,address,uint256,uint256,bytes)

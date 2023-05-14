@@ -101,6 +101,9 @@ contract ERC1155YulTest is Test {
         // assertEq(erc1155.balanceOf(address(0xBEEF), 1337), 420);
     }
 
+    // ------------------------------------------------- //
+    // ----------- EXPECTED REVERT TESTING ------------- //
+    // ------------------------------------------------- //
     function test_Revert_MintToZeroAddress() public {
         vm.expectRevert();
         bytes memory data;
