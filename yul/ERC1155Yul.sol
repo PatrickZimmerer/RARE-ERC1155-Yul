@@ -46,6 +46,10 @@ object "ERC1155Yul" {
 
             // balanceOf(address,uint256)
             case 0x00fdd58e {
+                // function balanceOf(address account, uint256 id) public view virtual override returns (uint256) {
+                //     require(account != address(0), "ERC1155: address zero is not a valid owner");
+                //     return _balances[id][account];
+                // }
 
             }
 
@@ -123,6 +127,26 @@ object "ERC1155Yul" {
             // @dev helper functino that returns true (uint of 1 === true)
             function returnTrue() {
                 returnUint(1)
+            }
+
+            /* ------------------------------------------------------- */
+            /* -------------- UTILITY HELPER FUNCTIONS --------------- */
+            /* ------------------------------------------------------- */
+            function lte(a, b) -> r {
+                r := iszero(gt(a, b))
+            }
+            
+            function gte(a, b) -> r {
+                r := iszero(lt(a, b))
+            }
+
+            function safeAdd(a, b) -> r {
+                r := add(a, b)
+                if or(lt(r, a), lt(r, b)) { revert(0, 0) }
+            }
+
+            function require(condition) {
+                if iszero(condition) { revert(0, 0) }
             }
 
         }
