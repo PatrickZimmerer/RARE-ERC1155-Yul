@@ -27,41 +27,9 @@ contract ERC1155YulTest is Test {
     }
 
     // ------------------------------------------------- //
-    // --------------- FUZZ TESTING -------------------- //
-    // ------------------------------------------------- //
-
-    function test_Fuzz_Minting(address to, uint256 id, uint256 amount) public {
-        // Bound fuzzer to nonZero values to avoid false positives
-        vm.assume(to != address(0) && amount != 0 && id <= type(uint160).max);
-        // we need to bound to below uint160.max since the storage would overflow
-        // since the hash from storageSlot 0 is already a pretty big number so there
-        // is only a certain amount of "ids" we can store from that point in storage
-        bytes memory data;
-        bool success;
-        bytes memory callData = abi.encodeWithSignature(
-            "mint(address,uint256,uint256,bytes)",
-            to,
-            id,
-            amount,
-            ""
-        );
-        (success, ) = address(erc1155).call(callData);
-        assertTrue(success);
-        callData = abi.encodeWithSignature(
-            "balanceOf(address,uint256)",
-            to,
-            id
-        );
-        (success, data) = address(erc1155).call(callData);
-        uint256 balance = abi.decode(data, (uint256));
-        assertEq(balance, amount);
-    }
-
-    // ------------------------------------------------- //
     // --------------- UNIT TESTING -------------------- //
     // ------------------------------------------------- //
-
-    function test_MintToEOA() public {
+    function test_Mint() public {
         bytes memory data;
         bool success;
         bytes memory callData = abi.encodeWithSignature(
@@ -98,7 +66,95 @@ contract ERC1155YulTest is Test {
         (success, data) = address(erc1155).call(callData);
         balance = abi.decode(data, (uint256));
         assertEq(balance, 840);
-        // assertEq(erc1155.balanceOf(address(0xBEEF), 1337), 420);
+    }
+
+    function test_SetApprovalForAll() public {
+        bytes memory data;
+        bool success;
+        bytes memory callData = abi.encodeWithSignature(
+            "setApprovalForAll(address,bool)",
+            address(0xBEEF),
+            true
+        );
+        (success, ) = address(erc1155).call(callData);
+        assertTrue(success);
+        callData = abi.encodeWithSignature(
+            "isApprovedForAll(address,address)",
+            address(this),
+            address(0xBEEF)
+        );
+        (success, data) = address(erc1155).call(callData);
+        bool isApproved = abi.decode(data, (bool));
+        assertEq(isApproved, true);
+        callData = abi.encodeWithSignature(
+            "setApprovalForAll(address,bool)",
+            address(0xBEEF),
+            false
+        );
+        (success, ) = address(erc1155).call(callData);
+        assertTrue(success);
+        callData = abi.encodeWithSignature(
+            "isApprovedForAll(address,address)",
+            address(this),
+            address(0xBEEF)
+        );
+        (success, data) = address(erc1155).call(callData);
+        isApproved = abi.decode(data, (bool));
+        assertEq(isApproved, false);
+    }
+
+    // ------------------------------------------------- //
+    // --------------- FUZZ TESTING -------------------- //
+    // ------------------------------------------------- //
+    function test_Fuzz_Minting(address to, uint256 id, uint256 amount) public {
+        // Bound fuzzer to nonZero values to avoid false positives
+        vm.assume(to != address(0) && amount != 0 && id <= type(uint160).max);
+        // we need to bound to below uint160.max since the storage would overflow
+        // since the hash from storageSlot 0 is already a pretty big number so there
+        // is only a certain amount of "ids" we can store from that point in storage
+        bytes memory data;
+        bool success;
+        bytes memory callData = abi.encodeWithSignature(
+            "mint(address,uint256,uint256,bytes)",
+            to,
+            id,
+            amount,
+            ""
+        );
+        (success, ) = address(erc1155).call(callData);
+        assertTrue(success);
+        callData = abi.encodeWithSignature(
+            "balanceOf(address,uint256)",
+            to,
+            id
+        );
+        (success, data) = address(erc1155).call(callData);
+        uint256 balance = abi.decode(data, (uint256));
+        assertEq(balance, amount);
+    }
+
+    function test_Fuzz_SetApprovalForAll(
+        address operator,
+        bool isApproved
+    ) public {
+        vm.assume(operator != address(0));
+        bytes memory data;
+        bool success;
+        bytes memory callData = abi.encodeWithSignature(
+            "setApprovalForAll(address,bool)",
+            address(operator),
+            isApproved
+        );
+        (success, ) = address(erc1155).call(callData);
+        assertTrue(success);
+        callData = abi.encodeWithSignature(
+            "isApprovedForAll(address,address)",
+            address(this),
+            address(operator)
+        );
+        (success, data) = address(erc1155).call(callData);
+        bool operatorApproved = abi.decode(data, (bool));
+        assertEq(operatorApproved, isApproved);
     }
 
     // ------------------------------------------------- //
@@ -116,8 +172,6 @@ contract ERC1155YulTest is Test {
             ""
         );
         (success, ) = address(erc1155).call(callData);
-        (success);
-        // balanceOf(address,uint256)
         callData = abi.encodeWithSignature(
             "balanceOf(address,uint256)",
             address(0xBEEF),
@@ -126,5 +180,40 @@ contract ERC1155YulTest is Test {
         (success, data) = address(erc1155).call(callData);
         uint256 balance = abi.decode(data, (uint256));
         assertEq(balance, 0);
+    }
+
+    function test_Revert_SetApprovalForAll() public {
+        bytes memory data;
+        bool success;
+        bytes memory callData = abi.encodeWithSignature(
+            "setApprovalForAll(address,bool)",
+            address(0xBEEF),
+            true
+        );
+        (success, ) = address(erc1155).call(callData);
+        assertTrue(success);
+        callData = abi.encodeWithSignature(
+            "isApprovedForAll(address,address)",
+            address(this),
+            address(0xBEEF)
+        );
+        (success, data) = address(erc1155).call(callData);
+        bool isApproved = abi.decode(data, (bool));
+        assertEq(isApproved, true);
+        callData = abi.encodeWithSignature(
+            "setApprovalForAll(address,bool)",
+            address(0xBEEF),
+            false
+        );
+        (success, ) = address(erc1155).call(callData);
+        assertTrue(success);
+        callData = abi.encodeWithSignature(
+            "isApprovedForAll(address,address)",
+            address(this),
+            address(0xBEEF)
+        );
+        (success, data) = address(erc1155).call(callData);
+        isApproved = abi.decode(data, (bool));
+        assertEq(isApproved, false);
     }
 }
