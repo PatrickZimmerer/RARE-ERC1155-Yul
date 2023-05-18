@@ -5,18 +5,29 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "forge-std/Vm.sol";
 import "./lib/YulDeployer.sol";
+import "./lib/ERC1155Helper.sol";
 
 interface ERC1155 {}
 
 contract ERC1155YulTest is Test {
     YulDeployer yulDeployer = new YulDeployer();
     ERC1155 erc1155;
+    ERC1155Helper erc1155helper;
 
     address alice = address(0x1337);
     address bob = address(0x42069);
 
+    event TransferSingle(
+        address indexed operator,
+        address indexed from,
+        address indexed to,
+        uint256 id,
+        uint256 value
+    );
+
     function setUp() public {
         erc1155 = ERC1155(yulDeployer.deployContract("ERC1155Yul"));
+        erc1155helper = new ERC1155Helper(IERC1155(address(erc1155)));
         vm.label(alice, "Alice");
         vm.label(bob, "Bob");
         vm.label(address(this), "TestContract");
@@ -30,76 +41,26 @@ contract ERC1155YulTest is Test {
     // --------------- UNIT TESTING -------------------- //
     // ------------------------------------------------- //
     function test_Mint() public {
-        bytes memory data;
-        bool success;
-        bytes memory callData = abi.encodeWithSignature(
-            "mint(address,uint256,uint256,bytes)",
-            address(0xBEEF),
-            1337,
-            420,
-            ""
-        );
-        (success, ) = address(erc1155).call(callData);
-        assertTrue(success);
-        callData = abi.encodeWithSignature(
-            "balanceOf(address,uint256)",
-            address(0xBEEF),
-            1337
-        );
-        (success, data) = address(erc1155).call(callData);
-        uint256 balance = abi.decode(data, (uint256));
+        erc1155helper.mint(address(0xBEEF), 1337, 420, "");
+        uint256 balance = erc1155helper.balanceOf(address(0xBEEF), 1337);
         assertEq(balance, 420);
-        callData = abi.encodeWithSignature(
-            "mint(address,uint256,uint256,bytes)",
-            address(0xBEEF),
-            1337,
-            420,
-            ""
-        );
-        (success, ) = address(erc1155).call(callData);
-        assertTrue(success);
-        callData = abi.encodeWithSignature(
-            "balanceOf(address,uint256)",
-            address(0xBEEF),
-            1337
-        );
-        (success, data) = address(erc1155).call(callData);
-        balance = abi.decode(data, (uint256));
+        erc1155helper.mint(address(0xBEEF), 1337, 420, "");
+        balance = erc1155helper.balanceOf(address(0xBEEF), 1337);
         assertEq(balance, 840);
     }
 
     function test_SetApprovalForAll() public {
-        bytes memory data;
-        bool success;
-        bytes memory callData = abi.encodeWithSignature(
-            "setApprovalForAll(address,bool)",
-            address(0xBEEF),
-            true
-        );
-        (success, ) = address(erc1155).call(callData);
-        assertTrue(success);
-        callData = abi.encodeWithSignature(
-            "isApprovedForAll(address,address)",
+        erc1155helper.setApprovalForAll(address(0xBEEF), true);
+        bool isApproved = erc1155helper.isApprovedForAll(
             address(this),
             address(0xBEEF)
         );
-        (success, data) = address(erc1155).call(callData);
-        bool isApproved = abi.decode(data, (bool));
         assertEq(isApproved, true);
-        callData = abi.encodeWithSignature(
-            "setApprovalForAll(address,bool)",
-            address(0xBEEF),
-            false
-        );
-        (success, ) = address(erc1155).call(callData);
-        assertTrue(success);
-        callData = abi.encodeWithSignature(
-            "isApprovedForAll(address,address)",
+        erc1155helper.setApprovalForAll(address(0xBEEF), false);
+        isApproved = erc1155helper.isApprovedForAll(
             address(this),
             address(0xBEEF)
         );
-        (success, data) = address(erc1155).call(callData);
-        isApproved = abi.decode(data, (bool));
         assertEq(isApproved, false);
     }
 
