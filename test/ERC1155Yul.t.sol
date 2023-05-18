@@ -41,26 +41,20 @@ contract ERC1155YulTest is Test {
     // --------------- UNIT TESTING -------------------- //
     // ------------------------------------------------- //
     function test_Mint() public {
-        erc1155helper.mint(address(0xBEEF), 1337, 420, "");
-        uint256 balance = erc1155helper.balanceOf(address(0xBEEF), 1337);
+        erc1155helper.mint(alice, 1337, 420, "");
+        uint256 balance = erc1155helper.balanceOf(alice, 1337);
         assertEq(balance, 420);
-        erc1155helper.mint(address(0xBEEF), 1337, 420, "");
-        balance = erc1155helper.balanceOf(address(0xBEEF), 1337);
+        erc1155helper.mint(alice, 1337, 420, "");
+        balance = erc1155helper.balanceOf(alice, 1337);
         assertEq(balance, 840);
     }
 
     function test_SetApprovalForAll() public {
-        erc1155helper.setApprovalForAll(address(0xBEEF), true);
-        bool isApproved = erc1155helper.isApprovedForAll(
-            address(this),
-            address(0xBEEF)
-        );
+        erc1155helper.setApprovalForAll(alice, true);
+        bool isApproved = erc1155helper.isApprovedForAll(address(this), alice);
         assertEq(isApproved, true);
-        erc1155helper.setApprovalForAll(address(0xBEEF), false);
-        isApproved = erc1155helper.isApprovedForAll(
-            address(this),
-            address(0xBEEF)
-        );
+        erc1155helper.setApprovalForAll(alice, false);
+        isApproved = erc1155helper.isApprovedForAll(address(this), alice);
         assertEq(isApproved, false);
     }
 
@@ -73,24 +67,8 @@ contract ERC1155YulTest is Test {
         // we need to bound to below uint160.max since the storage would overflow
         // since the hash from storageSlot 0 is already a pretty big number so there
         // is only a certain amount of "ids" we can store from that point in storage
-        bytes memory data;
-        bool success;
-        bytes memory callData = abi.encodeWithSignature(
-            "mint(address,uint256,uint256,bytes)",
-            to,
-            id,
-            amount,
-            ""
-        );
-        (success, ) = address(erc1155).call(callData);
-        assertTrue(success);
-        callData = abi.encodeWithSignature(
-            "balanceOf(address,uint256)",
-            to,
-            id
-        );
-        (success, data) = address(erc1155).call(callData);
-        uint256 balance = abi.decode(data, (uint256));
+        erc1155helper.mint(to, id, amount, "");
+        uint256 balance = erc1155helper.balanceOf(to, id);
         assertEq(balance, amount);
     }
 
@@ -99,23 +77,12 @@ contract ERC1155YulTest is Test {
         bool isApproved
     ) public {
         vm.assume(operator != address(0));
-        bytes memory data;
-        bool success;
-        bytes memory callData = abi.encodeWithSignature(
-            "setApprovalForAll(address,bool)",
-            address(operator),
-            isApproved
-        );
-        (success, ) = address(erc1155).call(callData);
-        assertTrue(success);
-        callData = abi.encodeWithSignature(
-            "isApprovedForAll(address,address)",
+        erc1155helper.setApprovalForAll(operator, isApproved);
+        bool isOperatorApproved = erc1155helper.isApprovedForAll(
             address(this),
-            address(operator)
+            operator
         );
-        (success, data) = address(erc1155).call(callData);
-        bool operatorApproved = abi.decode(data, (bool));
-        assertEq(operatorApproved, isApproved);
+        assertEq(isOperatorApproved, isApproved);
     }
 
     // ------------------------------------------------- //
@@ -135,7 +102,7 @@ contract ERC1155YulTest is Test {
         (success, ) = address(erc1155).call(callData);
         callData = abi.encodeWithSignature(
             "balanceOf(address,uint256)",
-            address(0xBEEF),
+            alice,
             1337
         );
         (success, data) = address(erc1155).call(callData);
@@ -148,7 +115,7 @@ contract ERC1155YulTest is Test {
         bool success;
         bytes memory callData = abi.encodeWithSignature(
             "setApprovalForAll(address,bool)",
-            address(0xBEEF),
+            alice,
             true
         );
         (success, ) = address(erc1155).call(callData);
@@ -156,14 +123,14 @@ contract ERC1155YulTest is Test {
         callData = abi.encodeWithSignature(
             "isApprovedForAll(address,address)",
             address(this),
-            address(0xBEEF)
+            alice
         );
         (success, data) = address(erc1155).call(callData);
         bool isApproved = abi.decode(data, (bool));
         assertEq(isApproved, true);
         callData = abi.encodeWithSignature(
             "setApprovalForAll(address,bool)",
-            address(0xBEEF),
+            alice,
             false
         );
         (success, ) = address(erc1155).call(callData);
@@ -171,7 +138,7 @@ contract ERC1155YulTest is Test {
         callData = abi.encodeWithSignature(
             "isApprovedForAll(address,address)",
             address(this),
-            address(0xBEEF)
+            alice
         );
         (success, data) = address(erc1155).call(callData);
         isApproved = abi.decode(data, (bool));
