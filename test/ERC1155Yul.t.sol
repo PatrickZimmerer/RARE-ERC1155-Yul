@@ -17,13 +17,19 @@ contract ERC1155YulTest is Test {
     address alice = address(0x1337);
     address bob = address(0x42069);
 
+    event ApprovalForAll(
+        address indexed owner,
+        address indexed operator,
+        bool approved
+    );
     event TransferSingle(
         address indexed operator,
         address indexed from,
         address indexed to,
         uint256 id,
-        uint256 value
+        uint256 amount
     );
+    event URI(string _value, uint256 indexed _id);
 
     function setUp() public {
         erc1155 = ERC1155(yulDeployer.deployContract("ERC1155Yul"));
@@ -41,6 +47,9 @@ contract ERC1155YulTest is Test {
     // --------------- UNIT TESTING -------------------- //
     // ------------------------------------------------- //
     function test_Mint() public {
+        vm.expectEmit(false, true, true, true);
+        emit TransferSingle(address(this), address(0), alice, 1337, 420);
+        erc1155helper.setApprovalForAll(alice, true);
         erc1155helper.mint(alice, 1337, 420, "");
         uint256 balance = erc1155helper.balanceOf(alice, 1337);
         assertEq(balance, 420);
@@ -50,6 +59,8 @@ contract ERC1155YulTest is Test {
     }
 
     function test_SetApprovalForAll() public {
+        vm.expectEmit(false, true, true, true);
+        emit ApprovalForAll(address(this), alice, true);
         erc1155helper.setApprovalForAll(alice, true);
         bool isApproved = erc1155helper.isApprovedForAll(address(this), alice);
         assertEq(isApproved, true);
@@ -61,22 +72,26 @@ contract ERC1155YulTest is Test {
     // ------------------------------------------------- //
     // --------------- FUZZ TESTING -------------------- //
     // ------------------------------------------------- //
-    function test_Fuzz_Minting(address to, uint256 id, uint256 amount) public {
+    function test_Fuzz_Minting(
+        address to,
+        uint256 id,
+        uint256 amount,
+        bytes memory mintData
+    ) public {
         // Bound fuzzer to nonZero values to avoid false positives
-        vm.assume(to != address(0) && amount != 0 && id <= type(uint160).max);
+        vm.assume(amount != 0 && id <= type(uint160).max);
+        if (to == address(0)) to = address(0xBEEF);
         // we need to bound to below uint160.max since the storage would overflow
         // since the hash from storageSlot 0 is already a pretty big number so there
         // is only a certain amount of "ids" we can store from that point in storage
-        erc1155helper.mint(to, id, amount, "");
-        uint256 balance = erc1155helper.balanceOf(to, id);
-        assertEq(balance, amount);
+        erc1155helper.mint(to, id, amount, mintData);
+        assertEq(erc1155helper.balanceOf(to, id), amount);
     }
 
     function test_Fuzz_SetApprovalForAll(
         address operator,
         bool isApproved
     ) public {
-        vm.assume(operator != address(0));
         erc1155helper.setApprovalForAll(operator, isApproved);
         bool isOperatorApproved = erc1155helper.isApprovedForAll(
             address(this),
@@ -93,12 +108,5 @@ contract ERC1155YulTest is Test {
         erc1155helper.mint(address(0), 1337, 420, "");
         uint256 balance = erc1155helper.balanceOf(alice, 1337);
         assertEq(balance, 0);
-    }
-
-    function test_Revert_SetApprovalForAll() public {
-        vm.expectRevert();
-        erc1155helper.setApprovalForAll(address(0), true);
-        bool isApproved = erc1155helper.isApprovedForAll(address(this), alice);
-        assertEq(isApproved, false);
     }
 }

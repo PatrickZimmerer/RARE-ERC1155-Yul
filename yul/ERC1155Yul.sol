@@ -40,7 +40,9 @@ object "ERC1155Yul" {
             /* ------------------------------------------------------- */
 
             switch getSelector()
-            // mint(address,uint256,uint256,bytes)
+            // -------------------------------------------------------- //
+            // --------- mint(address,uint256,uint256,bytes) ---------- //
+            // -------------------------------------------------------- //
             case 0x731133e9 {
                 let to := decodeAsAddress(0)
                 require(to)                             // checks for zero address and reverts
@@ -56,7 +58,9 @@ object "ERC1155Yul" {
                 emitTransferSingle(caller(), 0, to, id, amount)
             }
 
-            // mintBatch(address,uint256[],uint256[],bytes) 
+            // -------------------------------------------------------- //
+            // ---- mintBatch(address,uint256[],uint256[],bytes) ------ //
+            // -------------------------------------------------------- //
             case 0x1f7fdffa {
                 // function _batchMint(
                 //     address to,
@@ -79,9 +83,10 @@ object "ERC1155Yul" {
                 // let to := decodeAsAddress(0)
                 // let idsLength := 1
             }
-            
 
-            // balanceOf(address,uint256)
+            // -------------------------------------------------------- //
+            // ------------- balanceOf(address,uint256) --------------- //
+            // -------------------------------------------------------- //
             case 0x00fdd58e {
                 let account := decodeAsAddress(0)
                 require(account)                         // revert if zero address
@@ -91,15 +96,18 @@ object "ERC1155Yul" {
                 returnUint(res)                         // saves value to mem and returns
             }
 
-            // balanceOfBatch(address[] memory, uint256[] memory)
+            // -------------------------------------------------------- //
+            // -- balanceOfBatch(address[] memory, uint256[] memory) -- //
+            // -------------------------------------------------------- //
             case 0x4e1273f4 {
 
             }
 
-            // setApprovalForAll(address,bool)
+            // -------------------------------------------------------- //
+            // ------------ setApprovalForAll(address,bool) ----------- //
+            // -------------------------------------------------------- //
             case 0xa22cb465 {
                 let operator := decodeAsAddress(0)
-                require(operator)                         // revert if zero address
                 let isApproved := decodeAsUint(1)
                 let slot := getOperatorApprovedForAllSlot(caller(), operator)
                 sstore(slot, isApproved)
@@ -107,7 +115,9 @@ object "ERC1155Yul" {
                 return(0, 0)
             }
 
-            // isApprovedForAll(address,address)
+            // -------------------------------------------------------- //
+            // ---------- isApprovedForAll(address,address) ----------- //
+            // -------------------------------------------------------- //
             case 0xe985e9c5 {
                 let operator := decodeAsAddress(1)
                 let slot := getOperatorApprovedForAllSlot(caller(), operator)
@@ -116,12 +126,16 @@ object "ERC1155Yul" {
                 return(0, 0x20)
             }
             
-            // safeTransferFrom(address,address,uint256,uint256,bytes)
+            // -------------------------------------------------------- //
+            // safeTransferFrom(address,address,uint256,uint256,bytes)  //
+            // -------------------------------------------------------- //
             case 0xf242432a  {
 
             }
 
-            // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)
+            // ---------------------------------------------------------------- //
+            // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes) //
+            // ---------------------------------------------------------------- //
             case 0x2eb2c2d6  {
 
             }
@@ -192,7 +206,7 @@ object "ERC1155Yul" {
                 selector := div(calldataload(0), 0x100000000000000000000000000000000000000000000000000000000)
             }
 
-            // @dev masks 12 bytes to decode an address from the calldata (address is 20bytes)
+            // @dev masks 12 bytes to decode an address from the calldata (address = 20 bytes)
             function decodeAsAddress(offset) -> value {
                 value := decodeAsUint(offset)
                 if iszero(iszero(and(value, not(0xffffffffffffffffffffffffffffffffffffffff)))) {
