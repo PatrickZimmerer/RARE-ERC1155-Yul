@@ -90,58 +90,15 @@ contract ERC1155YulTest is Test {
     // ------------------------------------------------- //
     function test_Revert_MintToZeroAddress() public {
         vm.expectRevert();
-        bytes memory data;
-        bool success;
-        bytes memory callData = abi.encodeWithSignature(
-            "mint(address,uint256,uint256,bytes)",
-            address(0),
-            1337,
-            420,
-            ""
-        );
-        (success, ) = address(erc1155).call(callData);
-        callData = abi.encodeWithSignature(
-            "balanceOf(address,uint256)",
-            alice,
-            1337
-        );
-        (success, data) = address(erc1155).call(callData);
-        uint256 balance = abi.decode(data, (uint256));
+        erc1155helper.mint(address(0), 1337, 420, "");
+        uint256 balance = erc1155helper.balanceOf(alice, 1337);
         assertEq(balance, 0);
     }
 
     function test_Revert_SetApprovalForAll() public {
-        bytes memory data;
-        bool success;
-        bytes memory callData = abi.encodeWithSignature(
-            "setApprovalForAll(address,bool)",
-            alice,
-            true
-        );
-        (success, ) = address(erc1155).call(callData);
-        assertTrue(success);
-        callData = abi.encodeWithSignature(
-            "isApprovedForAll(address,address)",
-            address(this),
-            alice
-        );
-        (success, data) = address(erc1155).call(callData);
-        bool isApproved = abi.decode(data, (bool));
-        assertEq(isApproved, true);
-        callData = abi.encodeWithSignature(
-            "setApprovalForAll(address,bool)",
-            alice,
-            false
-        );
-        (success, ) = address(erc1155).call(callData);
-        assertTrue(success);
-        callData = abi.encodeWithSignature(
-            "isApprovedForAll(address,address)",
-            address(this),
-            alice
-        );
-        (success, data) = address(erc1155).call(callData);
-        isApproved = abi.decode(data, (bool));
+        vm.expectRevert();
+        erc1155helper.setApprovalForAll(address(0), true);
+        bool isApproved = erc1155helper.isApprovedForAll(address(this), alice);
         assertEq(isApproved, false);
     }
 }

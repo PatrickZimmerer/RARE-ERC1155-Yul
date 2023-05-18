@@ -99,6 +99,7 @@ object "ERC1155Yul" {
             // setApprovalForAll(address,bool)
             case 0xa22cb465 {
                 let operator := decodeAsAddress(0)
+                require(operator)                         // revert if zero address
                 let isApproved := decodeAsUint(1)
                 let slot := getOperatorApprovedForAllSlot(caller(), operator)
                 sstore(slot, isApproved)
