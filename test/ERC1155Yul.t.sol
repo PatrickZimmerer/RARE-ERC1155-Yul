@@ -58,6 +58,20 @@ contract ERC1155YulTest is Test {
         assertEq(balance, 840);
     }
 
+    function test_SafeTransferFromToEOA() public {
+        address from = address(0xABCD);
+
+        erc1155helper.mint(from, 1337, 100, "");
+
+        vm.prank(from);
+        erc1155helper.setApprovalForAll(address(this), true);
+
+        erc1155helper.safeTransferFrom(from, address(0xBEEF), 1337, 70, "");
+
+        assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 70);
+        assertEq(erc1155helper.balanceOf(from, 1337), 30);
+    }
+
     function test_SetApprovalForAll() public {
         vm.expectEmit(false, true, true, true);
         emit ApprovalForAll(address(this), alice, true);
