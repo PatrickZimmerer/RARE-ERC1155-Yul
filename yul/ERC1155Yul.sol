@@ -130,7 +130,20 @@ object "ERC1155Yul" {
             // safeTransferFrom(address,address,uint256,uint256,bytes)  //
             // -------------------------------------------------------- //
             case 0xf242432a  {
+                // require(msg.sender == from || isApprovedForAll[from][msg.sender], "NOT_AUTHORIZED");
 
+                // balanceOf[from][id] -= amount;
+                // balanceOf[to][id] += amount;
+
+                // emit TransferSingle(msg.sender, from, to, id, amount);
+
+                // require(
+                //     to.code.length == 0
+                //         ? to != address(0)
+                //         : ERC1155TokenReceiver(to).onERC1155Received(msg.sender, from, id, amount, data) ==
+                //     ERC1155TokenReceiver.onERC1155Received.selector,
+                //     "UNSAFE_RECIPIENT"
+                // );
             }
 
             // ---------------------------------------------------------------- //

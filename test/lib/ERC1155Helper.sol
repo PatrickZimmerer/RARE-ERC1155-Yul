@@ -20,6 +20,14 @@ interface IERC1155 {
         uint256 amount,
         bytes calldata data
     ) external;
+
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 amount,
+        bytes calldata data
+    ) external;
 }
 
 contract ERC1155Helper {
@@ -54,5 +62,15 @@ contract ERC1155Helper {
         bytes calldata data
     ) external {
         target.mint(to, tokenId, amount, data);
+    }
+
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 amount,
+        bytes calldata data
+    ) external {
+        target.safeTransferFrom(from, to, tokenId, amount, data);
     }
 }
