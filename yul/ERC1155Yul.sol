@@ -25,7 +25,7 @@ object "ERC1155Yul" {
             /* --------------------- SETUP STORAGE ---------------------- */
             /* ---------------------------------------------------------- */
             // functions that return the storage slots for readability later on
-            function balanceOfMappingSlot() -> p { p := 0 }  // balances of         || address => address => uint256
+            function balanceOfMappingSlot() -> p { p := 0 }  // balances of               || address => address => uint256
             function isApprovedForAllMappingSlot() -> p { p := 1 } // approved operators  || address => address => bool
             function uriLengthSlot() -> p { p := 2 } // it stores length of string passed into constructor, next slots => value
 
@@ -48,27 +48,21 @@ object "ERC1155Yul" {
             case 0x731133e9 {
                 let to := decodeAsAddress(0)
                 require(to)                             // checks for zero address and reverts
-                // could do this in the slot getter function but didn't to improve readability
                 let tokenId := decodeAsAddress(1)            
                 let amount := decodeAsUint(2)           
-                let slot := getNestedMappingSlot(balanceOfMappingSlot(), to, tokenId)     // get storage slot of the address
-                let oldBalance := sload(slot)
-                let newBalance := safeAdd(oldBalance, amount)
-                sstore(slot, newBalance)
-                // operator is the caller when minting, from is zero addr, rest is given as input
+                let slot := getNestedMappingSlot(balanceOfMappingSlot(), to, tokenId)
+                // store at balanceSlot (old Balance stored in that slot + amount minted)
+                sstore(slot, safeAdd(sload(slot), amount))
+                // operator == caller() when minting, from == zero addr, rest is given as input
                 emitTransferSingle(caller(), 0, to, tokenId, amount)
             }
 
             // -------------------------------------------------------- //
-            // ---- mintBatch(address,uint256[],uint256[],bytes) ------ //
+            // ----- mintBatch(address,uint256[],uint256[],bytes) ----- //
             // -------------------------------------------------------- //
             case 0x1f7fdffa {
-                // function _batchMint(
-                //     address to,
-                //     uint256[] memory ids,
-                //     uint256[] memory amounts,
-                //     bytes memory data
-                // ) internal virtual {
+                // function _batchMint(address to, uint256[] memory ids, uint256[] memory amounts,
+                //                     bytes memory data) internal virtual {
                 //     uint256 idsLength = ids.length; // Saves MLOADs.
 
                 //     require(idsLength == amounts.length, "LENGTH_MISMATCH");
@@ -99,7 +93,20 @@ object "ERC1155Yul" {
             // -- balanceOfBatch(address[] memory, uint256[] memory) -- //
             // -------------------------------------------------------- //
             case 0x4e1273f4 {
+                // function balanceOfBatch(address[] calldata owners, uint256[] calldata ids)
+                //     returns (uint256[] memory balances) {
+                //     require(owners.length == ids.length, "LENGTH_MISMATCH");
 
+                //     balances = new uint256[](owners.length);
+
+                //     // Unchecked because the only math done is incrementing
+                //     // the array index counter which cannot possibly overflow.
+                //     unchecked {
+                //         for (uint256 i = 0; i < owners.length; ++i) {
+                //             balances[i] = balanceOf[owners[i]][ids[i]];
+                //         }
+                //     }
+                // }
             }
 
             // -------------------------------------------------------- //
