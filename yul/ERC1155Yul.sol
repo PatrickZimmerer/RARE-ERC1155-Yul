@@ -24,8 +24,8 @@ object "ERC1155Yul" {
             /* ---------------------------------------------------------- */
             /* --------------------- SETUP STORAGE ---------------------- */
             /* ---------------------------------------------------------- */
-            function balancesMappingSlot() -> p { p := 0 }  // balances of         || address => address => uint256
-            function operatorApprovedForAllSlot() -> p { p := 1 } // approved operators  || address => address => bool
+            function balanceOfMappingSlot() -> p { p := 0 }  // balances of         || address => address => uint256
+            function isApprovedForAllMappingSlot() -> p { p := 1 } // approved operators  || address => address => bool
             function uriLengthSlot() -> p { p := 2 } // it stores length of string passed into constructor, next slots => value
 
             // STORAGE LAYOUT WILL LOOK LIKE THIS
@@ -47,15 +47,14 @@ object "ERC1155Yul" {
                 let to := decodeAsAddress(0)
                 require(to)                             // checks for zero address and reverts
                 // could do this in the slot getter function but didn't to improve readability
-                let id := decodeAsAddress(1)            
+                let tokenId := decodeAsAddress(1)            
                 let amount := decodeAsUint(2)           
-                let slot := getNestedMappingSlot(balancesMappingSlot(), to, id)     // get storage slot of the address
+                let slot := getNestedMappingSlot(balanceOfMappingSlot(), to, tokenId)     // get storage slot of the address
                 let oldBalance := sload(slot)
                 let newBalance := safeAdd(oldBalance, amount)
                 sstore(slot, newBalance)
                 // operator is the caller when minting, from is zero addr, rest is given as input
-                // emit TransferSingle(operator, from, to, id, amount);
-                emitTransferSingle(caller(), 0, to, id, amount)
+                emitTransferSingle(caller(), 0, to, tokenId, amount)
             }
 
             // -------------------------------------------------------- //
@@ -88,12 +87,10 @@ object "ERC1155Yul" {
             // ------------- balanceOf(address,uint256) --------------- //
             // -------------------------------------------------------- //
             case 0x00fdd58e {
-                let account := decodeAsAddress(0)
-                require(account)                         // revert if zero address
-                let id := decodeAsAddress(1)
-                let slot := getNestedMappingSlot(balancesMappingSlot(), account, id)
-                let res := sload(slot)                  // get value of slot
-                returnUint(res)                         // saves value to mem and returns
+                // puts in the "account" & "tokenId" to get the value in the nested mapping
+                let balanceOfUser := getBalanceOfUser(decodeAsAddress(0), decodeAsUint(1))
+                // saves value to mem and returns
+                returnUint(balanceOfUser)                      
             }
 
             // -------------------------------------------------------- //
@@ -109,7 +106,7 @@ object "ERC1155Yul" {
             case 0xa22cb465 {
                 let operator := decodeAsAddress(0)
                 let isApproved := decodeAsUint(1)
-                let slot := getNestedMappingSlot(operatorApprovedForAllSlot(), caller(), operator)
+                let slot := getNestedMappingSlot(isApprovedForAllMappingSlot(), caller(), operator)
                 sstore(slot, isApproved)
                 emitApprovalForAll(caller(), operator, isApproved)
                 return(0, 0)
@@ -128,24 +125,23 @@ object "ERC1155Yul" {
             // safeTransferFrom(address,address,uint256,uint256,bytes)  //
             // -------------------------------------------------------- //
             case 0xf242432a  {
-                // function safeTransferFrom(
-                //     address from,
-                //     address to,
-                //     uint256 id,
-                //     uint256 amount,
-                //     bytes calldata data
-                // )
                 let from := decodeAsAddress(0)
                 let to := decodeAsAddress(1)
                 let tokenId := decodeAsUint(2)
                 let amount := decodeAsUint(3)
-                // require(or(eq(caller(), from)),)
-                // require(msg.sender == from || isApprovedForAll[from][msg.sender], "NOT_AUTHORIZED");
-
-                // balanceOf[from][id] -= amount;
-                // balanceOf[to][id] += amount;
-
-                // emit TransferSingle(msg.sender, from, to, id, amount);
+                // if sender is owner or approved for the "from" address continue
+                require(iszero(or(eq(caller(), from), isApprovedForAll(from, caller()))))
+                let fromSlot := getNestedMappingSlot(balanceOfMappingSlot(), from, tokenId)
+                let fromBalance := sload(fromSlot)
+                // check for sufficient balance 
+                require(gte(fromBalance, amount))
+                // already checked for underflow => use sub instead of safeSub
+                sstore(fromSlot, sub(fromBalance, amount))
+                
+                let toSlot := getNestedMappingSlot(balanceOfMappingSlot(), to, tokenId)
+                // sload the old balance and safeAdd "amount" for overflow protection
+                sstore(toSlot, safeAdd(sload(toSlot), amount))
+                emitTransferSingle(caller(), from, to, tokenId, amount)
             }
 
             // ---------------------------------------------------------------- //
@@ -162,8 +158,13 @@ object "ERC1155Yul" {
             /* ---------------------------------------------------------- */
             /* ---------------- FREQUENTLY USED FUNCTIONS --------------- */
             /* ---------------------------------------------------------- */
+            function getBalanceOfUser(account, tokenId) -> balanceOfUser {
+                let slot := getNestedMappingSlot(balanceOfMappingSlot(), account, tokenId)
+                balanceOfUser := sload(slot)
+            }
+            
             function isApprovedForAll(account,operator) -> isApproved {
-                let slot := getNestedMappingSlot(operatorApprovedForAllSlot(), account, operator)
+                let slot := getNestedMappingSlot(isApprovedForAllMappingSlot(), caller(), operator)
                 isApproved := sload(slot)
             }
 
@@ -173,24 +174,25 @@ object "ERC1155Yul" {
             // gets the slot where values are stored in the nested mapping
             function getNestedMappingSlot(mappingSlot, param1, param2) -> slot {
                 mstore(0x00, mappingSlot)                       // store storage slot of mapping
-                mstore(0x20, param1)                       // store 1st input
-                mstore(0x40, param2)                       // store 2nd input
+                mstore(0x20, param1)                            // store 1st input
+                mstore(0x40, param2)                            // store 2nd input
+
                 slot := keccak256(0x00, 0x60)                   // get hash of those => storage slot
             }
 
             /* ---------------------------------------------------------- */
             /* -------------- EMIT EVENTS HELPER FUNCTIONS -------------- */
             /* ---------------------------------------------------------- */
-            function emitTransferSingle(operator, from, to, id, amount) {
+            function emitTransferSingle(operator, from, to, tokenId, amount) {
                 // keccak256 of "TransferSingle(address,address,address,uint256,uint256)"
                 let signatureHash := 0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62
                 // use scratch space to store non indexed values from 0x00 - 0x40
-                mstore(0, id)
+                mstore(0, tokenId)
                 mstore(0x20, amount)
                 log4(0, 0x40, signatureHash, operator, from, to)
             }
 
-            function emitTransferBatch(operator, from, to, ids, amounts) {
+            function emitTransferBatch(operator, from, to, tokenIds, amounts) {
                 // keccak256 of "TransferBatch(address,address,address,uint256[],uint256[])"
                 let signatureHash := 0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb
                 // TODO Store values of arrays in memory and get length to log4 later
