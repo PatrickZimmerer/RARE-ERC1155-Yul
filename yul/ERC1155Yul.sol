@@ -49,7 +49,7 @@ object "ERC1155Yul" {
                 // could do this in the slot getter function but didn't to improve readability
                 let id := decodeAsAddress(1)            
                 let amount := decodeAsUint(2)           
-                let slot := getBalanceOfSlot(to, id)     // get storage slot of the address
+                let slot := getNestedMappingSlot(balancesMappingSlot(), to, id)     // get storage slot of the address
                 let oldBalance := sload(slot)
                 let newBalance := safeAdd(oldBalance, amount)
                 sstore(slot, newBalance)
@@ -91,7 +91,7 @@ object "ERC1155Yul" {
                 let account := decodeAsAddress(0)
                 require(account)                         // revert if zero address
                 let id := decodeAsAddress(1)
-                let slot := getBalanceOfSlot(account, id)
+                let slot := getNestedMappingSlot(balancesMappingSlot(), account, id)
                 let res := sload(slot)                  // get value of slot
                 returnUint(res)                         // saves value to mem and returns
             }
@@ -109,7 +109,7 @@ object "ERC1155Yul" {
             case 0xa22cb465 {
                 let operator := decodeAsAddress(0)
                 let isApproved := decodeAsUint(1)
-                let slot := getOperatorApprovedForAllSlot(caller(), operator)
+                let slot := getNestedMappingSlot(operatorApprovedForAllSlot(), caller(), operator)
                 sstore(slot, isApproved)
                 emitApprovalForAll(caller(), operator, isApproved)
                 return(0, 0)
@@ -119,9 +119,7 @@ object "ERC1155Yul" {
             // ---------- isApprovedForAll(address,address) ----------- //
             // -------------------------------------------------------- //
             case 0xe985e9c5 {
-                let operator := decodeAsAddress(1)
-                let slot := getOperatorApprovedForAllSlot(caller(), operator)
-                let isApproved := sload(slot)
+                let isApproved := isApprovedForAll(decodeAsAddress(0), decodeAsAddress(1))
                 mstore(0x00, isApproved)
                 return(0, 0x20)
             }
@@ -130,20 +128,24 @@ object "ERC1155Yul" {
             // safeTransferFrom(address,address,uint256,uint256,bytes)  //
             // -------------------------------------------------------- //
             case 0xf242432a  {
+                // function safeTransferFrom(
+                //     address from,
+                //     address to,
+                //     uint256 id,
+                //     uint256 amount,
+                //     bytes calldata data
+                // )
+                let from := decodeAsAddress(0)
+                let to := decodeAsAddress(1)
+                let tokenId := decodeAsUint(2)
+                let amount := decodeAsUint(3)
+                // require(or(eq(caller(), from)),)
                 // require(msg.sender == from || isApprovedForAll[from][msg.sender], "NOT_AUTHORIZED");
 
                 // balanceOf[from][id] -= amount;
                 // balanceOf[to][id] += amount;
 
                 // emit TransferSingle(msg.sender, from, to, id, amount);
-
-                // require(
-                //     to.code.length == 0
-                //         ? to != address(0)
-                //         : ERC1155TokenReceiver(to).onERC1155Received(msg.sender, from, id, amount, data) ==
-                //     ERC1155TokenReceiver.onERC1155Received.selector,
-                //     "UNSAFE_RECIPIENT"
-                // );
             }
 
             // ---------------------------------------------------------------- //
@@ -158,21 +160,21 @@ object "ERC1155Yul" {
             }
 
             /* ---------------------------------------------------------- */
-            /* ---------------- STORAGE HELPER FUNCTIONS ---------------- */
+            /* ---------------- FREQUENTLY USED FUNCTIONS --------------- */
             /* ---------------------------------------------------------- */
-            // gets the slot where balanceOf the "account" address is in the nested mapping
-            function getBalanceOfSlot(account, id) -> slot {
-                mstore(0x00, balancesMappingSlot())             // store storage slot of mapping
-                mstore(0x20, account)                           // store account addr (1st depth of mapping)
-                mstore(0x40, id)                                // store tokenId (2nd depth)
-                slot := keccak256(0x00, 0x60)                   // get hash of those => storage slot
+            function isApprovedForAll(account,operator) -> isApproved {
+                let slot := getNestedMappingSlot(operatorApprovedForAllSlot(), account, operator)
+                isApproved := sload(slot)
             }
 
-            // gets the slot where the bool for approval is in the nested mapping
-            function getOperatorApprovedForAllSlot(account, operator) -> slot {
-                mstore(0x00, operatorApprovedForAllSlot())      // store storage slot of mapping
-                mstore(0x20, account)                           // store account addr (1st depth of mapping)
-                mstore(0x40, operator)                          // store operator addr (2nd depth)
+            /* ---------------------------------------------------------- */
+            /* ---------------- STORAGE HELPER FUNCTIONS ---------------- */
+            /* ---------------------------------------------------------- */
+            // gets the slot where values are stored in the nested mapping
+            function getNestedMappingSlot(mappingSlot, param1, param2) -> slot {
+                mstore(0x00, mappingSlot)                       // store storage slot of mapping
+                mstore(0x20, param1)                       // store 1st input
+                mstore(0x40, param2)                       // store 2nd input
                 slot := keccak256(0x00, 0x60)                   // get hash of those => storage slot
             }
 
@@ -206,10 +208,6 @@ object "ERC1155Yul" {
                 let signatureHash := 0x6bb7ff708619ba0610cba295a58592e0451dee2622938c8755667688daf3529b
                 // TODO Store values of arrays in memory and get length to log2 later
             }
-            
-            
-            
-
 
             /* ---------------------------------------------------------- */
             /* -------- HELPER FUNCTIONS FOR CALLDATA DECODING  --------- */

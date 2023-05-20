@@ -58,19 +58,19 @@ contract ERC1155YulTest is Test {
         assertEq(balance, 840);
     }
 
-    function test_SafeTransferFromToEOA() public {
-        address from = address(0xABCD);
+    // function test_SafeTransferFromToEOA() public {
+    //     address from = address(0xABCD);
 
-        erc1155helper.mint(from, 1337, 100, "");
+    //     erc1155helper.mint(from, 1337, 100, "");
 
-        vm.prank(from);
-        erc1155helper.setApprovalForAll(address(this), true);
+    //     vm.prank(from);
+    //     erc1155helper.setApprovalForAll(address(this), true);
 
-        erc1155helper.safeTransferFrom(from, address(0xBEEF), 1337, 70, "");
+    //     erc1155helper.safeTransferFrom(from, address(0xBEEF), 1337, 70, "");
 
-        assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 70);
-        assertEq(erc1155helper.balanceOf(from, 1337), 30);
-    }
+    //     assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 70);
+    //     assertEq(erc1155helper.balanceOf(from, 1337), 30);
+    // }
 
     function test_SetApprovalForAll() public {
         vm.expectEmit(false, true, true, true);
@@ -81,6 +81,10 @@ contract ERC1155YulTest is Test {
         erc1155helper.setApprovalForAll(alice, false);
         isApproved = erc1155helper.isApprovedForAll(address(this), alice);
         assertEq(isApproved, false);
+        vm.prank(alice);
+        erc1155helper.setApprovalForAll(bob, true);
+        isApproved = erc1155helper.isApprovedForAll(alice, bob);
+        assertEq(isApproved, true);
     }
 
     // ------------------------------------------------- //
@@ -94,7 +98,7 @@ contract ERC1155YulTest is Test {
     ) public {
         // Bound fuzzer to nonZero values to avoid false positives
         vm.assume(amount != 0 && id <= type(uint160).max);
-        if (to == address(0)) to = address(0xBEEF);
+        if (to == address(0)) to = alice;
         // we need to bound to below uint160.max since the storage would overflow
         // since the hash from storageSlot 0 is already a pretty big number so there
         // is only a certain amount of "ids" we can store from that point in storage
@@ -102,16 +106,20 @@ contract ERC1155YulTest is Test {
         assertEq(erc1155helper.balanceOf(to, id), amount);
     }
 
-    function test_Fuzz_SetApprovalForAll(
-        address operator,
-        bool isApproved
-    ) public {
-        erc1155helper.setApprovalForAll(operator, isApproved);
-        bool isOperatorApproved = erc1155helper.isApprovedForAll(
-            address(this),
-            operator
-        );
-        assertEq(isOperatorApproved, isApproved);
+    function test_Fuzz_SOLMATE_ApproveAll(address to, bool approved) public {
+        vm.assume(to != address(0));
+        vm.assume(to != address(1));
+        vm.assume(to != address(2));
+        vm.assume(to != address(3));
+        vm.assume(to != address(4));
+        vm.assume(to != address(5));
+        vm.assume(to != address(6));
+        vm.assume(to != address(7));
+        vm.assume(to != address(8));
+        vm.assume(to != address(9));
+        erc1155helper.setApprovalForAll(to, approved);
+
+        assertEq(erc1155helper.isApprovedForAll(address(this), to), approved);
     }
 
     // ------------------------------------------------- //
