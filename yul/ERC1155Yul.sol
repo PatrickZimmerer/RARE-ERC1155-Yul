@@ -24,6 +24,7 @@ object "ERC1155Yul" {
             /* ---------------------------------------------------------- */
             /* --------------------- SETUP STORAGE ---------------------- */
             /* ---------------------------------------------------------- */
+            // functions that return the storage slots for readability later on
             function balanceOfMappingSlot() -> p { p := 0 }  // balances of         || address => address => uint256
             function isApprovedForAllMappingSlot() -> p { p := 1 } // approved operators  || address => address => bool
             function uriLengthSlot() -> p { p := 2 } // it stores length of string passed into constructor, next slots => value
@@ -34,6 +35,7 @@ object "ERC1155Yul" {
             // 0x40 - 0x60 => Scratch Space
             // 0x60 - 0x80 => Free memory pointer
             // 0x80 - .... => Free memory
+            setMemoryPointer(0x80)
             
             /* ------------------------------------------------------- */
             /* ----------------- FUNCTION SELECTORS ------------------ */
@@ -171,13 +173,33 @@ object "ERC1155Yul" {
             /* ---------------------------------------------------------- */
             /* ---------------- STORAGE HELPER FUNCTIONS ---------------- */
             /* ---------------------------------------------------------- */
-            // gets the slot where values are stored in the nested mapping
+            // gets the slot where values are stored in a nested mapping
             function getNestedMappingSlot(mappingSlot, param1, param2) -> slot {
                 mstore(0x00, mappingSlot)                       // store storage slot of mapping
                 mstore(0x20, param1)                            // store 1st input
                 mstore(0x40, param2)                            // store 2nd input
 
                 slot := keccak256(0x00, 0x60)                   // get hash of those => storage slot
+            }
+
+            /* ---------------------------------------------------------- */
+            /* ---------------- MEMORY HELPER FUNCTIONS ----------------- */
+            /* ---------------------------------------------------------- */
+            // just returns the memory pointer position which is 0x60
+            function getMemoryPointerPosition() -> position {
+                position := 0x60
+            }
+            // gets the value (initialized as 0x80) stored in the memory pointer position 
+            function getMemoryPointer() -> value {
+                value := mload(getMemoryPointerPosition())
+            }
+            // advances the memory pointer value by 32 bytes (initialy 0x80 + 0x20 => 0xa0)
+            function incrementMemoryPointer() {
+                mstore(getMemoryPointerPosition(), add(getMemoryPointer(), 0x20))
+            }
+            // sets memory pointer to a given memory slot, remember default value is 0x80
+            function setMemoryPointer(newSlot) {
+                mstore(getMemoryPointerPosition(), newSlot)
             }
 
             /* ---------------------------------------------------------- */
@@ -195,6 +217,8 @@ object "ERC1155Yul" {
             function emitTransferBatch(operator, from, to, tokenIds, amounts) {
                 // keccak256 of "TransferBatch(address,address,address,uint256[],uint256[])"
                 let signatureHash := 0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb
+                
+                log4(0, 0x40, signatureHash, operator, from, to)
                 // TODO Store values of arrays in memory and get length to log4 later
             }
 

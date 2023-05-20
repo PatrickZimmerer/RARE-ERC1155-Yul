@@ -66,6 +66,9 @@ contract ERC1155YulTest is Test {
         vm.prank(from);
         erc1155helper.setApprovalForAll(address(this), true);
 
+        vm.expectEmit(false, true, true, true);
+        emit TransferSingle(address(this), from, address(0xBEEF), 1337, 70);
+
         erc1155helper.safeTransferFrom(from, address(0xBEEF), 1337, 70, "");
 
         assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 70);
