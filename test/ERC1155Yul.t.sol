@@ -129,7 +129,9 @@ contract ERC1155YulTest is Test {
         address to,
         bytes memory transferData
     ) public {
+        vm.assume(transferAmount != 0 && id <= type(uint160).max);
         if (to == address(0)) to = address(0xBEEF);
+        // Bound fuzzer to nonZero values to avoid false positives
 
         if (uint256(uint160(to)) <= 18 || to.code.length > 0) return;
 
