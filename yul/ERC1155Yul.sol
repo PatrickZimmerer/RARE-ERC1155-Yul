@@ -129,6 +129,7 @@ object "ERC1155Yul" {
             case 0xf242432a  {
                 let from := decodeAsAddress(0)
                 let to := decodeAsAddress(1)
+
                 let tokenId := decodeAsUint(2)
                 let amount := decodeAsUint(3)
                 // if sender is owner or approved for the "from" address continue
@@ -137,6 +138,8 @@ object "ERC1155Yul" {
                 let fromBalance := sload(fromSlot)
                 // check for sufficient balance 
                 require(gte(fromBalance, amount))
+                // check for not sending to zero address
+                require(to)
                 // already checked for underflow => use sub instead of safeSub
                 sstore(fromSlot, sub(fromBalance, amount))
                 

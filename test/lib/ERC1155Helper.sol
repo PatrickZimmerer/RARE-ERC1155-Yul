@@ -14,10 +14,22 @@ interface IERC1155 {
         uint256 tokenId
     ) external returns (uint256);
 
+    function balanceOfBatch(
+        address[] calldata accounts,
+        uint256[] calldata ids
+    ) external view returns (uint256[] memory);
+
     function mint(
         address to,
         uint256 tokenId,
         uint256 amount,
+        bytes calldata data
+    ) external;
+
+    function batchMint(
+        address to,
+        uint256[] calldata tokenIds,
+        uint256[] calldata amounts,
         bytes calldata data
     ) external;
 
@@ -55,6 +67,13 @@ contract ERC1155Helper {
         return target.balanceOf(owner, tokenId);
     }
 
+    function balanceOfBatch(
+        address[] calldata accounts,
+        uint256[] calldata ids
+    ) external view returns (uint256[] memory) {
+        return target.balanceOfBatch(accounts, ids);
+    }
+
     function mint(
         address to,
         uint256 tokenId,
@@ -62,6 +81,15 @@ contract ERC1155Helper {
         bytes calldata data
     ) external {
         target.mint(to, tokenId, amount, data);
+    }
+
+    function batchMint(
+        address to,
+        uint256[] calldata tokenIds,
+        uint256[] calldata amounts,
+        bytes calldata data
+    ) external {
+        target.batchMint(to, tokenIds, amounts, data);
     }
 
     function safeTransferFrom(
