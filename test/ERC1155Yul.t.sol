@@ -58,19 +58,34 @@ contract ERC1155YulTest is Test {
         assertEq(balance, 840);
     }
 
-    // function test_SafeTransferFromToEOA() public {
-    //     address from = address(0xABCD);
+    function test_SafeTransferFromToEOA() public {
+        address from = address(0xABCD);
 
-    //     erc1155helper.mint(from, 1337, 100, "");
+        erc1155helper.mint(from, 1337, 100, "");
 
-    //     vm.prank(from);
-    //     erc1155helper.setApprovalForAll(address(this), true);
+        vm.prank(from);
+        erc1155helper.setApprovalForAll(address(this), true);
 
-    //     erc1155helper.safeTransferFrom(from, address(0xBEEF), 1337, 70, "");
+        erc1155helper.safeTransferFrom(from, address(0xBEEF), 1337, 70, "");
 
-    //     assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 70);
-    //     assertEq(erc1155helper.balanceOf(from, 1337), 30);
-    // }
+        assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 70);
+        assertEq(erc1155helper.balanceOf(from, 1337), 30);
+    }
+
+    function testSafeTransferFromSelf() public {
+        erc1155helper.mint(address(this), 1337, 100, "");
+
+        erc1155helper.safeTransferFrom(
+            address(this),
+            address(0xBEEF),
+            1337,
+            70,
+            ""
+        );
+
+        assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 70);
+        assertEq(erc1155helper.balanceOf(address(this), 1337), 30);
+    }
 
     function test_SetApprovalForAll() public {
         vm.expectEmit(false, true, true, true);
@@ -104,6 +119,46 @@ contract ERC1155YulTest is Test {
         // is only a certain amount of "ids" we can store from that point in storage
         erc1155helper.mint(to, id, amount, mintData);
         assertEq(erc1155helper.balanceOf(to, id), amount);
+    }
+
+    function test_Fuzz_SOLMATE_SafeTransferFromToEOA(
+        uint256 id,
+        uint256 mintAmount,
+        bytes memory mintData,
+        uint256 transferAmount,
+        address to,
+        bytes memory transferData
+    ) public {
+        if (to == address(0)) to = address(0xBEEF);
+
+        if (uint256(uint160(to)) <= 18 || to.code.length > 0) return;
+
+        transferAmount = bound(transferAmount, 0, mintAmount);
+
+        address from = address(0xABCD);
+
+        erc1155helper.mint(from, id, mintAmount, mintData);
+
+        vm.prank(from);
+        erc1155helper.setApprovalForAll(address(this), true);
+
+        erc1155helper.safeTransferFrom(
+            from,
+            to,
+            id,
+            transferAmount,
+            transferData
+        );
+
+        if (to == from) {
+            assertEq(erc1155helper.balanceOf(to, id), mintAmount);
+        } else {
+            assertEq(erc1155helper.balanceOf(to, id), transferAmount);
+            assertEq(
+                erc1155helper.balanceOf(from, id),
+                mintAmount - transferAmount
+            );
+        }
     }
 
     function test_Fuzz_SOLMATE_ApproveAll(address to, bool approved) public {

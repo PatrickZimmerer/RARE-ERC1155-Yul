@@ -38,7 +38,7 @@ contract ERC1155Helper {
     }
 
     function setApprovalForAll(address operator, bool approved) external {
-        return target.setApprovalForAll(operator, approved);
+        target.setApprovalForAll(operator, approved);
     }
 
     function isApprovedForAll(
