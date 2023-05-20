@@ -39,10 +39,6 @@ contract ERC1155YulTest is Test {
         vm.label(address(this), "TestContract");
     }
 
-    function test_Test() public {
-        assertEq(true, true);
-    }
-
     // ------------------------------------------------- //
     // --------------- UNIT TESTING -------------------- //
     // ------------------------------------------------- //
@@ -56,6 +52,75 @@ contract ERC1155YulTest is Test {
         erc1155helper.mint(alice, 1337, 420, "");
         balance = erc1155helper.balanceOf(alice, 1337);
         assertEq(balance, 840);
+    }
+
+    // function testBatchMintToEOA() public {
+    //     uint256[] memory ids = new uint256[](5);
+    //     ids[0] = 1337;
+    //     ids[1] = 1338;
+    //     ids[2] = 1339;
+    //     ids[3] = 1340;
+    //     ids[4] = 1341;
+
+    //     uint256[] memory amounts = new uint256[](5);
+    //     amounts[0] = 100;
+    //     amounts[1] = 200;
+    //     amounts[2] = 300;
+    //     amounts[3] = 400;
+    //     amounts[4] = 500;
+
+    //     erc1155helper.batchMint(address(0xBEEF), ids, amounts, "");
+
+    //     assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 100);
+    //     assertEq(erc1155helper.balanceOf(address(0xBEEF), 1338), 200);
+    //     assertEq(erc1155helper.balanceOf(address(0xBEEF), 1339), 300);
+    //     assertEq(erc1155helper.balanceOf(address(0xBEEF), 1340), 400);
+    //     assertEq(erc1155helper.balanceOf(address(0xBEEF), 1341), 500);
+    // }
+
+    // function testBatchBalanceOf() public {
+    //     address[] memory tos = new address[](5);
+    //     tos[0] = address(0xBEEF);
+    //     tos[1] = address(0xCAFE);
+    //     tos[2] = address(0xFACE);
+    //     tos[3] = address(0xDEAD);
+    //     tos[4] = address(0xFEED);
+
+    //     uint256[] memory ids = new uint256[](5);
+    //     ids[0] = 1337;
+    //     ids[1] = 1338;
+    //     ids[2] = 1339;
+    //     ids[3] = 1340;
+    //     ids[4] = 1341;
+
+    //     erc1155helper.mint(address(0xBEEF), 1337, 100, "");
+    //     erc1155helper.mint(address(0xCAFE), 1338, 200, "");
+    //     erc1155helper.mint(address(0xFACE), 1339, 300, "");
+    //     erc1155helper.mint(address(0xDEAD), 1340, 400, "");
+    //     erc1155helper.mint(address(0xFEED), 1341, 500, "");
+
+    //     uint256[] memory balances = erc1155helper.balanceOfBatch(tos, ids);
+
+    //     assertEq(balances[0], 100);
+    //     assertEq(balances[1], 200);
+    //     assertEq(balances[2], 300);
+    //     assertEq(balances[3], 400);
+    //     assertEq(balances[4], 500);
+    // }
+
+    function testSafeTransferFromSelf() public {
+        erc1155helper.mint(address(this), 1337, 100, "");
+
+        erc1155helper.safeTransferFrom(
+            address(this),
+            address(0xBEEF),
+            1337,
+            70,
+            ""
+        );
+
+        assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 70);
+        assertEq(erc1155helper.balanceOf(address(this), 1337), 30);
     }
 
     function test_SafeTransferFromToEOA() public {
@@ -73,21 +138,6 @@ contract ERC1155YulTest is Test {
 
         assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 70);
         assertEq(erc1155helper.balanceOf(from, 1337), 30);
-    }
-
-    function testSafeTransferFromSelf() public {
-        erc1155helper.mint(address(this), 1337, 100, "");
-
-        erc1155helper.safeTransferFrom(
-            address(this),
-            address(0xBEEF),
-            1337,
-            70,
-            ""
-        );
-
-        assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 70);
-        assertEq(erc1155helper.balanceOf(address(this), 1337), 30);
     }
 
     function test_SetApprovalForAll() public {
@@ -124,7 +174,7 @@ contract ERC1155YulTest is Test {
         assertEq(erc1155helper.balanceOf(to, id), amount);
     }
 
-    function test_Fuzz_SOLMATE_SafeTransferFromToEOA(
+    function test_Fuzz_SafeTransferFromToEOA(
         uint256 id,
         uint256 mintAmount,
         bytes memory mintData,
@@ -166,7 +216,7 @@ contract ERC1155YulTest is Test {
         }
     }
 
-    function test_Fuzz_SOLMATE_ApproveAll(address to, bool approved) public {
+    function test_Fuzz_ApproveAll(address to, bool approved) public {
         vm.assume(to != address(0));
         vm.assume(to != address(1));
         vm.assume(to != address(2));
@@ -185,10 +235,85 @@ contract ERC1155YulTest is Test {
     // ------------------------------------------------- //
     // ----------- EXPECTED REVERT TESTING ------------- //
     // ------------------------------------------------- //
-    function test_Revert_MintToZeroAddress() public {
-        vm.expectRevert();
-        erc1155helper.mint(address(0), 1337, 420, "");
-        uint256 balance = erc1155helper.balanceOf(alice, 1337);
-        assertEq(balance, 0);
+
+    function testFailMintToZero(
+        uint256 id,
+        uint256 amount,
+        bytes memory data
+    ) public {
+        erc1155helper.mint(address(0), id, amount, data);
+    }
+
+    function testFailSafeTransferFromInsufficientBalance(
+        address to,
+        uint256 id,
+        uint256 mintAmount,
+        uint256 transferAmount,
+        bytes memory mintData,
+        bytes memory transferData
+    ) public {
+        address from = address(0xABCD);
+
+        transferAmount = bound(
+            transferAmount,
+            mintAmount + 1,
+            type(uint256).max
+        );
+
+        erc1155helper.mint(from, id, mintAmount, mintData);
+
+        vm.prank(from);
+        erc1155helper.setApprovalForAll(address(this), true);
+
+        erc1155helper.safeTransferFrom(
+            from,
+            to,
+            id,
+            transferAmount,
+            transferData
+        );
+    }
+
+    function testFailSafeTransferFromSelfInsufficientBalance(
+        address to,
+        uint256 id,
+        uint256 mintAmount,
+        uint256 transferAmount,
+        bytes memory mintData,
+        bytes memory transferData
+    ) public {
+        transferAmount = bound(
+            transferAmount,
+            mintAmount + 1,
+            type(uint256).max
+        );
+
+        erc1155helper.mint(address(this), id, mintAmount, mintData);
+        erc1155helper.safeTransferFrom(
+            address(this),
+            to,
+            id,
+            transferAmount,
+            transferData
+        );
+    }
+
+    function testFailSafeTransferFromToZero(
+        uint256 id,
+        uint256 mintAmount,
+        uint256 transferAmount,
+        bytes memory mintData,
+        bytes memory transferData
+    ) public {
+        transferAmount = bound(transferAmount, 1, mintAmount);
+
+        erc1155helper.mint(address(this), id, mintAmount, mintData);
+        erc1155helper.safeTransferFrom(
+            address(this),
+            address(0),
+            id,
+            transferAmount,
+            transferData
+        );
     }
 }
