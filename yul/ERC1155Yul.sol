@@ -58,15 +58,20 @@ object "ERC1155Yul" {
             }
 
             // -------------------------------------------------------- //
-            // ----- mintBatch(address,uint256[],uint256[],bytes) ----- //
+            // ----- batchMint(address,uint256[],uint256[],bytes) ----- //
             // -------------------------------------------------------- //
-            case 0x1f7fdffa {
+            case 0xb48ab8b6 {
+                let to := decodeAsAddress(0)
+                require(to)                                 // checks for zero address and reverts
+                let tokenIdsPointer := decodeAsUint(1)      // gets the pointer to the length
+                let amountsPointer := decodeAsUint(2)       // gets the pointer to the length
+                let data := decodeAsUint(3)
+                let tokenIdsLength := calldataload(tokenIdsPointer) 
+                let amountsLength := calldataload(amountsPointer)
+                require(eq(tokenIdsLength, amountsLength))  // requires equal length for batchMints
+                
                 // function _batchMint(address to, uint256[] memory ids, uint256[] memory amounts,
                 //                     bytes memory data) internal virtual {
-                //     uint256 idsLength = ids.length; // Saves MLOADs.
-
-                //     require(idsLength == amounts.length, "LENGTH_MISMATCH");
-
                 //     for (uint256 i = 0; i < idsLength; ) {
                 //     balanceOf[to][ids[i]] += amounts[i];
 
