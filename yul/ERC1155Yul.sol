@@ -51,6 +51,8 @@ object "ERC1155Yul" {
                 let tokenId := decodeAsAddress(1)            
                 let amount := decodeAsUint(2)           
                 mint(to, tokenId, amount)
+                // operator == caller() when minting, from == zero addr, rest is given as input
+                emitTransferSingle(caller(), 0, to, tokenId, amount)
             }
 
             // -------------------------------------------------------- //
@@ -73,10 +75,8 @@ object "ERC1155Yul" {
                     let amount := calldataloadWith4BytesOffset(add(amountsPointer, mul(add(i, 1), 0x20)))
                     mint(to, tokenId, amount)
                 }
-                // function _batchMint(address to, uint256[] memory ids, uint256[] memory amounts,
-                //                     bytes memory data) internal virtual {
-                //     for (uint256 i = 0; i < idsLength; ) {
-                //     balanceOf[to][ids[i]] += amounts[i];
+                // pass in: operator, from, to, tokenIds, amounts. last two will be handled inside emit function
+                emitTransferBatch(caller(), 0, to, tokenIdsPointer, amountsPointer)
             }
 
             // -------------------------------------------------------- //
@@ -93,7 +93,14 @@ object "ERC1155Yul" {
             // -- balanceOfBatch(address[] memory, uint256[] memory) -- //
             // -------------------------------------------------------- //
             case 0x4e1273f4 {
-                // function balanceOfBatch(address[] calldata owners, uint256[] calldata ids)
+                // get pointers where length of arrays are stored
+                let ownersPointer := decodeAsUint(0)
+                let tokenIdsPointer := decodeAsUint(1)
+                let amountsPointer := decodeAsUint(2)
+                let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer) 
+                let amountsLength := calldataloadWith4BytesOffset(amountsPointer)
+                require(eq(tokenIdsLength, amountsLength))  // check for equal lengths
+                
                 //     returns (uint256[] memory balances) {
                 //     require(owners.length == ids.length, "LENGTH_MISMATCH");
 
@@ -149,12 +156,12 @@ object "ERC1155Yul" {
                 require(to)
                 // already checked for underflow => use sub instead of safeSub
                 sstore(fromSlot, sub(fromBalance, amount))
-                
+
                 let toSlot := getNestedMappingSlot(balanceOfMappingSlot(), to, tokenId)
                 // sload the old balance and safeAdd "amount" for overflow protection
                 sstore(toSlot, safeAdd(sload(toSlot), amount))
                 emitTransferSingle(caller(), from, to, tokenId, amount)
-            }
+            }                
 
             // ---------------------------------------------------------------- //
             // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes) //
@@ -175,8 +182,6 @@ object "ERC1155Yul" {
                 let slot := getNestedMappingSlot(balanceOfMappingSlot(), to, tokenId)
                 // store at balanceSlot (old Balance stored in that slot + amount minted)
                 sstore(slot, safeAdd(sload(slot), amount))
-                // operator == caller() when minting, from == zero addr, rest is given as input
-                emitTransferSingle(caller(), 0, to, tokenId, amount)
             }
 
             function getBalanceOfUser(account, tokenId) -> balanceOfUser {
@@ -233,12 +238,34 @@ object "ERC1155Yul" {
                 log4(0, 0x40, signatureHash, operator, from, to)
             }
 
-            function emitTransferBatch(operator, from, to, tokenIds, amounts) {
+            function emitTransferBatch(operator, from, to, tokenIdsPointer, amountsPointer) {
                 // keccak256 of "TransferBatch(address,address,address,uint256[],uint256[])"
                 let signatureHash := 0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb
                 
-                log4(0, 0x40, signatureHash, operator, from, to)
-                // TODO Store values of arrays in memory and get length to log4 later
+                let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer) 
+                let amountsLength := calldataloadWith4BytesOffset(amountsPointer)
+
+                // add lengths of arrays and multiply with 32 bytes, then add 64 bytes for length
+                // => 64 bytes + ((length + length) * 32 bytes)
+                let finalMemorySize := add(0x40, mul(add(tokenIdsLength, amountsLength), 0x20))
+                
+                // start at 0x80
+                let tokenIdsStart := getMemoryPointer()
+                // start at 0x80 + ((length + 1) * 32 bytes)
+                let amountsStart := add(tokenIdsStart, mul(add(1, amountsLength), 0x20))
+                // store the lengths in their starting postions
+                mstore(tokenIdsStart, tokenIdsLength)
+                mstore(amountsStart, amountsLength)
+                for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
+                    // tokenId will be pointer + i (starts at 0) + 1 (to start at 1) and multiply
+                    // by 32 bytes so first time => pointer + ((0 + 1) * 32 bytes) and so on
+                    let tokenId := calldataloadWith4BytesOffset(add(tokenIdsPointer, mul(add(i, 1), 0x20)))
+                    let amount := calldataloadWith4BytesOffset(add(amountsPointer, mul(add(i, 1), 0x20)))
+                    
+                    mstore(add(tokenIdsStart, mul(add(i, 1), 0x20)), tokenId)
+                    mstore(add(amountsStart, mul(add(i, 1), 0x20)), amount)
+                }
+                log4(0x80, finalMemorySize, signatureHash, operator, from, to)
             }
 
             function emitApprovalForAll(owner, operator, isApproved) {

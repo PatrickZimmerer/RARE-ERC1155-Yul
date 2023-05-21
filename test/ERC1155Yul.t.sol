@@ -14,7 +14,7 @@ contract ERC1155YulTest is Test {
     ERC1155 erc1155;
     ERC1155Helper erc1155helper;
 
-    address alice = address(0x1337);
+    address alice = address(0x0187);
     address bob = address(0x42069);
 
     event ApprovalForAll(
@@ -28,6 +28,13 @@ contract ERC1155YulTest is Test {
         address indexed to,
         uint256 id,
         uint256 amount
+    );
+    event TransferBatch(
+        address indexed operator,
+        address indexed from,
+        address indexed to,
+        uint256[] ids,
+        uint256[] amounts
     );
     event URI(string _value, uint256 indexed _id);
 
@@ -45,7 +52,6 @@ contract ERC1155YulTest is Test {
     function test_Mint() public {
         vm.expectEmit(false, true, true, true);
         emit TransferSingle(address(this), address(0), alice, 1337, 420);
-        erc1155helper.setApprovalForAll(alice, true);
         erc1155helper.mint(alice, 1337, 420, "");
         uint256 balance = erc1155helper.balanceOf(alice, 1337);
         assertEq(balance, 420);
@@ -53,6 +59,24 @@ contract ERC1155YulTest is Test {
         balance = erc1155helper.balanceOf(alice, 1337);
         assertEq(balance, 840);
     }
+
+    // TODO ASK QUESTIONS WHY OPERATOR IS NOT EMITTED CORRECTLY EVEN THOUGH USED AS ABOVE
+    // function testBatchMintToEOAAndEmit() public {
+    //     uint256[] memory ids = new uint256[](2);
+    //     ids[0] = 1337;
+    //     ids[1] = 1338;
+
+    //     uint256[] memory amounts = new uint256[](2);
+    //     amounts[0] = 100;
+    //     amounts[1] = 200;
+
+    //     vm.expectEmit(false, true, true, true);
+    //     emit TransferBatch(address(this), address(0), alice, ids, amounts);
+    //     erc1155helper.batchMint(alice, ids, amounts, "");
+
+    //     assertEq(erc1155helper.balanceOf(alice, 1337), 100);
+    //     assertEq(erc1155helper.balanceOf(alice, 1338), 200);
+    // }
 
     function testBatchMintToEOA() public {
         uint256[] memory ids = new uint256[](5);
@@ -69,13 +93,13 @@ contract ERC1155YulTest is Test {
         amounts[3] = 400;
         amounts[4] = 500;
 
-        erc1155helper.batchMint(address(0xBEEF), ids, amounts, "");
+        erc1155helper.batchMint(alice, ids, amounts, "");
 
-        assertEq(erc1155helper.balanceOf(address(0xBEEF), 1337), 100);
-        assertEq(erc1155helper.balanceOf(address(0xBEEF), 1338), 200);
-        assertEq(erc1155helper.balanceOf(address(0xBEEF), 1339), 300);
-        assertEq(erc1155helper.balanceOf(address(0xBEEF), 1340), 400);
-        assertEq(erc1155helper.balanceOf(address(0xBEEF), 1341), 500);
+        assertEq(erc1155helper.balanceOf(alice, 1337), 100);
+        assertEq(erc1155helper.balanceOf(alice, 1338), 200);
+        assertEq(erc1155helper.balanceOf(alice, 1339), 300);
+        assertEq(erc1155helper.balanceOf(alice, 1340), 400);
+        assertEq(erc1155helper.balanceOf(alice, 1341), 500);
     }
 
     function testBatchBalanceOf() public {
