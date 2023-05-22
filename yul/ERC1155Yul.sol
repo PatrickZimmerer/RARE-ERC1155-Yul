@@ -66,7 +66,13 @@ object "ERC1155Yul" {
                 let data := decodeAsUint(3)
                 let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer) 
                 let amountsLength := calldataloadWith4BytesOffset(amountsPointer)
-                require(eq(tokenIdsLength, amountsLength))  // requires equal length for batchMints
+
+                // require(a.length == b.length) check for same size arrays
+                if iszero(eq(tokenIdsLength, amountsLength)) {
+                    // LENGTH_MISMATCH
+                    mstore(0x0, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
+                    revert(0x0, 21)
+                }
                 
                 for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
                     // tokenId will be pointer + i (starts at 0) + 1 (to start at 1) and multiply
@@ -90,30 +96,39 @@ object "ERC1155Yul" {
             }
 
             // -------------------------------------------------------- //
-            // -- balanceOfBatch(address[] memory, uint256[] memory) -- //
+            // -- balanceOfBatch(address[], uint256[]) -- //
             // -------------------------------------------------------- //
             case 0x4e1273f4 {
                 // get pointers where length of arrays are stored
                 let ownersPointer := decodeAsUint(0)
                 let tokenIdsPointer := decodeAsUint(1)
-                let amountsPointer := decodeAsUint(2)
-                let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer) 
-                let amountsLength := calldataloadWith4BytesOffset(amountsPointer)
-                require(eq(tokenIdsLength, amountsLength))  // check for equal lengths
+                let ownersLength := calldataloadWith4BytesOffset(ownersPointer) 
+                let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer)
+                // require(a.length == b.length) check for same size arrays
+                if iszero(eq(ownersLength, tokenIdsLength)) {
+                    // LENGTH_MISMATCH
+                    mstore(0x0, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
+                    revert(0x0, 0x20)
+                }
+                // add add 32 bytes for length of array then multiply length with 32 bytes
+                // => 32 bytes + (length * 32 bytes)
+
+                let finalMemorySize := add(0x40, mul(tokenIdsLength, 0x20))
+                // store length of array
+                mstore(getMemoryPointer(), 0x20)
+                incrementMemoryPointer()
+                mstore(getMemoryPointer(), tokenIdsLength)
+                incrementMemoryPointer()
                 
-                //     returns (uint256[] memory balances) {
-                //     require(owners.length == ids.length, "LENGTH_MISMATCH");
-
-                //     balances = new uint256[](owners.length);
-
-                //     // Unchecked because the only math done is incrementing
-                //     // the array index counter which cannot possibly overflow.
-                //     unchecked {
-                //         for (uint256 i = 0; i < owners.length; ++i) {
-                //             balances[i] = balanceOf[owners[i]][ids[i]];
-                //         }
-                //     }
-                // }
+                for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
+                    let owner := calldataloadWith4BytesOffset(add(ownersPointer, mul(add(i, 1), 0x20)))
+                    let tokenId := calldataloadWith4BytesOffset(add(tokenIdsPointer, mul(add(i, 1), 0x20)))
+                    
+                    let amount := getBalanceOfUser(owner, tokenId)
+                    mstore(getMemoryPointer(), amount)
+                    incrementMemoryPointer()
+                }
+                return(0x80, finalMemorySize)
             }
 
             // -------------------------------------------------------- //
@@ -190,7 +205,7 @@ object "ERC1155Yul" {
             }
             
             function isApprovedForAll(account,operator) -> isApproved {
-                let slot := getNestedMappingSlot(isApprovedForAllMappingSlot(), caller(), operator)
+                let slot := getNestedMappingSlot(isApprovedForAllMappingSlot(), account, operator)
                 isApproved := sload(slot)
             }
 
@@ -213,14 +228,17 @@ object "ERC1155Yul" {
             function getMemoryPointerPosition() -> position {
                 position := 0x60
             }
+
             // gets the value (initialized as 0x80) stored in the memory pointer position 
             function getMemoryPointer() -> value {
                 value := mload(getMemoryPointerPosition())
             }
+
             // advances the memory pointer value by 32 bytes (initialy 0x80 + 0x20 => 0xa0)
             function incrementMemoryPointer() {
                 mstore(getMemoryPointerPosition(), add(getMemoryPointer(), 0x20))
             }
+
             // sets memory pointer to a given memory slot, remember default value is 0x80
             function setMemoryPointer(newSlot) {
                 mstore(getMemoryPointerPosition(), newSlot)
@@ -246,8 +264,8 @@ object "ERC1155Yul" {
                 let amountsLength := calldataloadWith4BytesOffset(amountsPointer)
 
                 // add lengths of arrays and multiply with 32 bytes, then add 64 bytes for length
-                // => 64 bytes + ((length + length) * 32 bytes)
-                let finalMemorySize := add(0x40, mul(add(tokenIdsLength, amountsLength), 0x20))
+                // => 64 bytes + ((length * 2) * 32 bytes)
+                let finalMemorySize := add(0x40, mul(mul(tokenIdsLength, 2), 0x20))
                 
                 // start at 0x80
                 let tokenIdsStart := getMemoryPointer()
