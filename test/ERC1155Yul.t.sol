@@ -93,6 +93,9 @@ contract ERC1155YulTest is Test {
 
     address alice = address(0x0187);
     address bob = address(0x42069);
+    mapping(address => mapping(uint256 => uint256)) public userMintAmounts;
+    mapping(address => mapping(uint256 => uint256))
+        public userTransferOrBurnAmounts;
 
     event ApprovalForAll(
         address indexed owner,
@@ -123,10 +126,22 @@ contract ERC1155YulTest is Test {
         vm.label(address(this), "TestContract");
     }
 
+    function min2(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a > b ? b : a;
+    }
+
+    function min3(
+        uint256 a,
+        uint256 b,
+        uint256 c
+    ) internal pure returns (uint256) {
+        return a > b ? (b > c ? c : b) : (a > c ? c : a);
+    }
+
     // ------------------------------------------------- //
     // --------------- UNIT TESTING -------------------- //
     // ------------------------------------------------- //
-    function test_Mint() public {
+    function testMintToSelfAndEmit() public {
         vm.expectEmit(false, true, true, true);
         emit TransferSingle(address(this), address(0), alice, 1337, 420);
         token.mint(alice, 1337, 420, "");
@@ -218,6 +233,21 @@ contract ERC1155YulTest is Test {
         assertEq(balances[4], 500);
     }
 
+    function testApproveAll() public {
+        vm.expectEmit(false, true, true, true);
+        emit ApprovalForAll(address(this), alice, true);
+        token.setApprovalForAll(alice, true);
+        bool isApproved = token.isApprovedForAll(address(this), alice);
+        assertEq(isApproved, true);
+        token.setApprovalForAll(alice, false);
+        isApproved = token.isApprovedForAll(address(this), alice);
+        assertEq(isApproved, false);
+        vm.prank(alice);
+        token.setApprovalForAll(bob, true);
+        isApproved = token.isApprovedForAll(alice, bob);
+        assertEq(isApproved, true);
+    }
+
     function testSafeTransferFromSelf() public {
         token.mint(address(this), 1337, 100, "");
 
@@ -244,25 +274,10 @@ contract ERC1155YulTest is Test {
         assertEq(token.balanceOf(from, 1337), 30);
     }
 
-    function test_SetApprovalForAll() public {
-        vm.expectEmit(false, true, true, true);
-        emit ApprovalForAll(address(this), alice, true);
-        token.setApprovalForAll(alice, true);
-        bool isApproved = token.isApprovedForAll(address(this), alice);
-        assertEq(isApproved, true);
-        token.setApprovalForAll(alice, false);
-        isApproved = token.isApprovedForAll(address(this), alice);
-        assertEq(isApproved, false);
-        vm.prank(alice);
-        token.setApprovalForAll(bob, true);
-        isApproved = token.isApprovedForAll(alice, bob);
-        assertEq(isApproved, true);
-    }
-
     // ------------------------------------------------- //
     // --------------- FUZZ TESTING -------------------- //
     // ------------------------------------------------- //
-    function test_Fuzz_Minting(
+    function test_Fuzz_MintToEOA(
         address to,
         uint256 id,
         uint256 amount,
@@ -278,36 +293,41 @@ contract ERC1155YulTest is Test {
         assertEq(token.balanceOf(to, id), amount);
     }
 
-    function test_Fuzz_SafeTransferFromToEOA(
-        uint256 id,
-        uint256 mintAmount,
-        bytes memory mintData,
-        uint256 transferAmount,
+    function testBatchMintToEOA(
         address to,
-        bytes memory transferData
+        uint256[] memory ids,
+        uint256[] memory amounts,
+        bytes memory mintData
     ) public {
-        vm.assume(transferAmount != 0 && id <= type(uint160).max);
         if (to == address(0)) to = address(0xBEEF);
-        // Bound fuzzer to nonZero values to avoid false positives
 
         if (uint256(uint160(to)) <= 18 || to.code.length > 0) return;
 
-        transferAmount = bound(transferAmount, 0, mintAmount);
+        uint256 minLength = min2(ids.length, amounts.length);
 
-        address from = address(0xABCD);
+        uint256[] memory normalizedIds = new uint256[](minLength);
+        uint256[] memory normalizedAmounts = new uint256[](minLength);
 
-        token.mint(from, id, mintAmount, mintData);
+        for (uint256 i = 0; i < minLength; i++) {
+            uint256 id = ids[i];
 
-        vm.prank(from);
-        token.setApprovalForAll(address(this), true);
+            uint256 remainingMintAmountForId = type(uint256).max -
+                userMintAmounts[to][id];
 
-        token.safeTransferFrom(from, to, id, transferAmount, transferData);
+            uint256 mintAmount = bound(amounts[i], 0, remainingMintAmountForId);
 
-        if (to == from) {
-            assertEq(token.balanceOf(to, id), mintAmount);
-        } else {
-            assertEq(token.balanceOf(to, id), transferAmount);
-            assertEq(token.balanceOf(from, id), mintAmount - transferAmount);
+            normalizedIds[i] = id;
+            normalizedAmounts[i] = mintAmount;
+
+            userMintAmounts[to][id] += mintAmount;
+        }
+
+        token.batchMint(to, normalizedIds, normalizedAmounts, mintData);
+
+        for (uint256 i = 0; i < normalizedIds.length; i++) {
+            uint256 id = normalizedIds[i];
+
+            assertEq(token.balanceOf(to, id), userMintAmounts[to][id]);
         }
     }
 
@@ -325,6 +345,113 @@ contract ERC1155YulTest is Test {
         token.setApprovalForAll(to, approved);
 
         assertEq(token.isApprovedForAll(address(this), to), approved);
+    }
+
+    function test_Fuzz_SafeTransferFromToEOA(
+        uint256 id,
+        uint256 mintAmount,
+        bytes memory mintData,
+        uint256 transferAmount,
+        address to,
+        bytes memory transferData
+    ) public {
+        if (to == address(0)) to = address(0xBEEF);
+
+        if (uint256(uint160(to)) <= 18 || to.code.length > 0) return;
+
+        transferAmount = bound(transferAmount, 0, mintAmount);
+
+        address from = address(0xABCD);
+
+        vm.assume(mintAmount != 0 && id <= type(uint160).max);
+        token.mint(from, id, mintAmount, mintData);
+
+        vm.prank(from);
+        token.setApprovalForAll(address(this), true);
+
+        token.safeTransferFrom(from, to, id, transferAmount, transferData);
+
+        if (to == from) {
+            assertEq(token.balanceOf(to, id), mintAmount);
+        } else {
+            assertEq(token.balanceOf(to, id), transferAmount);
+            assertEq(token.balanceOf(from, id), mintAmount - transferAmount);
+        }
+    }
+
+    function test_Fuzz_SafeTransferFromSelf(
+        uint256 id,
+        uint256 mintAmount,
+        bytes memory mintData,
+        uint256 transferAmount,
+        address to,
+        bytes memory transferData
+    ) public {
+        if (to == address(0)) to = address(0xBEEF);
+
+        if (uint256(uint160(to)) <= 18 || to.code.length > 0) return;
+
+        transferAmount = bound(transferAmount, 0, mintAmount);
+
+        vm.assume(mintAmount != 0 && id <= type(uint160).max);
+        token.mint(address(this), id, mintAmount, mintData);
+
+        token.safeTransferFrom(
+            address(this),
+            to,
+            id,
+            transferAmount,
+            transferData
+        );
+
+        assertEq(token.balanceOf(to, id), transferAmount);
+        assertEq(
+            token.balanceOf(address(this), id),
+            mintAmount - transferAmount
+        );
+    }
+
+    function test_Fuzz_BatchBalanceOf(
+        address[] memory tos,
+        uint256[] memory ids,
+        uint256[] memory amounts,
+        bytes memory mintData
+    ) public {
+        uint256 minLength = min3(tos.length, ids.length, amounts.length);
+
+        address[] memory normalizedTos = new address[](minLength);
+        uint256[] memory normalizedIds = new uint256[](minLength);
+
+        for (uint256 i = 0; i < minLength; i++) {
+            uint256 id = ids[i];
+            address to = tos[i] == address(0) || tos[i].code.length > 0
+                ? address(0xBEEF)
+                : tos[i];
+
+            uint256 remainingMintAmountForId = type(uint256).max -
+                userMintAmounts[to][id];
+
+            normalizedTos[i] = to;
+            normalizedIds[i] = id;
+
+            uint256 mintAmount = bound(amounts[i], 0, remainingMintAmountForId);
+            vm.assume(mintAmount != 0 && id <= type(uint160).max);
+            token.mint(to, id, mintAmount, mintData);
+
+            userMintAmounts[to][id] += mintAmount;
+        }
+
+        uint256[] memory balances = token.balanceOfBatch(
+            normalizedTos,
+            normalizedIds
+        );
+
+        for (uint256 i = 0; i < normalizedTos.length; i++) {
+            assertEq(
+                balances[i],
+                token.balanceOf(normalizedTos[i], normalizedIds[i])
+            );
+        }
     }
 
     // ------------------------------------------------- //
@@ -439,5 +566,22 @@ contract ERC1155YulTest is Test {
             transferAmount,
             transferData
         );
+    }
+
+    function testFailBalanceOfBatchWithArrayMismatch() public view {
+        address[] memory tos = new address[](5);
+        tos[0] = address(0xBEEF);
+        tos[1] = address(0xCAFE);
+        tos[2] = address(0xFACE);
+        tos[3] = address(0xDEAD);
+        tos[4] = address(0xFEED);
+
+        uint256[] memory ids = new uint256[](4);
+        ids[0] = 1337;
+        ids[1] = 1338;
+        ids[2] = 1339;
+        ids[3] = 1340;
+
+        token.balanceOfBatch(tos, ids);
     }
 }
