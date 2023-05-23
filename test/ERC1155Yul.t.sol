@@ -274,6 +274,59 @@ contract ERC1155YulTest is Test {
         assertEq(token.balanceOf(from, 1337), 30);
     }
 
+    function testSafeBatchTransferFromToEOA() public {
+        address from = address(0xABCD);
+
+        uint256[] memory ids = new uint256[](5);
+        ids[0] = 1337;
+        ids[1] = 1338;
+        ids[2] = 1339;
+        ids[3] = 1340;
+        ids[4] = 1341;
+
+        uint256[] memory mintAmounts = new uint256[](5);
+        mintAmounts[0] = 100;
+        mintAmounts[1] = 200;
+        mintAmounts[2] = 300;
+        mintAmounts[3] = 400;
+        mintAmounts[4] = 500;
+
+        uint256[] memory transferAmounts = new uint256[](5);
+        transferAmounts[0] = 50;
+        transferAmounts[1] = 100;
+        transferAmounts[2] = 150;
+        transferAmounts[3] = 200;
+        transferAmounts[4] = 250;
+
+        token.batchMint(from, ids, mintAmounts, "");
+
+        vm.prank(from);
+        token.setApprovalForAll(address(this), true);
+
+        token.safeBatchTransferFrom(
+            from,
+            address(0xBEEF),
+            ids,
+            transferAmounts,
+            ""
+        );
+
+        assertEq(token.balanceOf(from, 1337), 50);
+        assertEq(token.balanceOf(address(0xBEEF), 1337), 50);
+
+        assertEq(token.balanceOf(from, 1338), 100);
+        assertEq(token.balanceOf(address(0xBEEF), 1338), 100);
+
+        assertEq(token.balanceOf(from, 1339), 150);
+        assertEq(token.balanceOf(address(0xBEEF), 1339), 150);
+
+        assertEq(token.balanceOf(from, 1340), 200);
+        assertEq(token.balanceOf(address(0xBEEF), 1340), 200);
+
+        assertEq(token.balanceOf(from, 1341), 250);
+        assertEq(token.balanceOf(address(0xBEEF), 1341), 250);
+    }
+
     // ------------------------------------------------- //
     // --------------- FUZZ TESTING -------------------- //
     // ------------------------------------------------- //
@@ -409,6 +462,78 @@ contract ERC1155YulTest is Test {
             token.balanceOf(address(this), id),
             mintAmount - transferAmount
         );
+    }
+
+    function test_Fuzz_SafeBatchTransferFromToEOA(
+        address to,
+        uint256[] memory ids,
+        uint256[] memory mintAmounts,
+        uint256[] memory transferAmounts,
+        bytes memory mintData,
+        bytes memory transferData
+    ) public {
+        if (to == address(0)) to = address(0xBEEF);
+
+        if (uint256(uint160(to)) <= 18 || to.code.length > 0) return;
+
+        address from = address(0xABCD);
+
+        uint256 minLength = min3(
+            ids.length,
+            mintAmounts.length,
+            transferAmounts.length
+        );
+
+        uint256[] memory normalizedIds = new uint256[](minLength);
+        uint256[] memory normalizedMintAmounts = new uint256[](minLength);
+        uint256[] memory normalizedTransferAmounts = new uint256[](minLength);
+
+        for (uint256 i = 0; i < minLength; i++) {
+            uint256 id = ids[i];
+
+            uint256 remainingMintAmountForId = type(uint256).max -
+                userMintAmounts[from][id];
+
+            uint256 mintAmount = bound(
+                mintAmounts[i],
+                0,
+                remainingMintAmountForId
+            );
+            uint256 transferAmount = bound(transferAmounts[i], 0, mintAmount);
+
+            normalizedIds[i] = id;
+            normalizedMintAmounts[i] = mintAmount;
+            normalizedTransferAmounts[i] = transferAmount;
+
+            userMintAmounts[from][id] += mintAmount;
+            userTransferOrBurnAmounts[from][id] += transferAmount;
+        }
+
+        token.batchMint(from, normalizedIds, normalizedMintAmounts, mintData);
+
+        vm.prank(from);
+        token.setApprovalForAll(address(this), true);
+
+        token.safeBatchTransferFrom(
+            from,
+            to,
+            normalizedIds,
+            normalizedTransferAmounts,
+            transferData
+        );
+
+        for (uint256 i = 0; i < normalizedIds.length; i++) {
+            uint256 id = normalizedIds[i];
+
+            assertEq(
+                token.balanceOf(address(to), id),
+                userTransferOrBurnAmounts[from][id]
+            );
+            assertEq(
+                token.balanceOf(from, id),
+                userMintAmounts[from][id] - userTransferOrBurnAmounts[from][id]
+            );
+        }
     }
 
     function test_Fuzz_BatchBalanceOf(
@@ -565,6 +690,114 @@ contract ERC1155YulTest is Test {
             id,
             transferAmount,
             transferData
+        );
+    }
+
+    function testFailSafeBatchTransferInsufficientBalance() public {
+        address from = address(0xABCD);
+
+        uint256[] memory ids = new uint256[](5);
+        ids[0] = 1337;
+        ids[1] = 1338;
+        ids[2] = 1339;
+        ids[3] = 1340;
+        ids[4] = 1341;
+
+        uint256[] memory mintAmounts = new uint256[](5);
+
+        mintAmounts[0] = 50;
+        mintAmounts[1] = 100;
+        mintAmounts[2] = 150;
+        mintAmounts[3] = 200;
+        mintAmounts[4] = 250;
+
+        uint256[] memory transferAmounts = new uint256[](5);
+        transferAmounts[0] = 100;
+        transferAmounts[1] = 200;
+        transferAmounts[2] = 300;
+        transferAmounts[3] = 400;
+        transferAmounts[4] = 500;
+
+        token.batchMint(from, ids, mintAmounts, "");
+
+        vm.prank(from);
+        token.setApprovalForAll(address(this), true);
+
+        token.safeBatchTransferFrom(
+            from,
+            address(0xBEEF),
+            ids,
+            transferAmounts,
+            ""
+        );
+    }
+
+    function testFailSafeBatchTransferFromToZero() public {
+        address from = address(0xABCD);
+
+        uint256[] memory ids = new uint256[](5);
+        ids[0] = 1337;
+        ids[1] = 1338;
+        ids[2] = 1339;
+        ids[3] = 1340;
+        ids[4] = 1341;
+
+        uint256[] memory mintAmounts = new uint256[](5);
+        mintAmounts[0] = 100;
+        mintAmounts[1] = 200;
+        mintAmounts[2] = 300;
+        mintAmounts[3] = 400;
+        mintAmounts[4] = 500;
+
+        uint256[] memory transferAmounts = new uint256[](5);
+        transferAmounts[0] = 50;
+        transferAmounts[1] = 100;
+        transferAmounts[2] = 150;
+        transferAmounts[3] = 200;
+        transferAmounts[4] = 250;
+
+        token.batchMint(from, ids, mintAmounts, "");
+
+        vm.prank(from);
+        token.setApprovalForAll(address(this), true);
+
+        token.safeBatchTransferFrom(from, address(0), ids, transferAmounts, "");
+    }
+
+    function testFailSafeBatchTransferFromWithArrayLengthMismatch() public {
+        address from = address(0xABCD);
+
+        uint256[] memory ids = new uint256[](5);
+        ids[0] = 1337;
+        ids[1] = 1338;
+        ids[2] = 1339;
+        ids[3] = 1340;
+        ids[4] = 1341;
+
+        uint256[] memory mintAmounts = new uint256[](5);
+        mintAmounts[0] = 100;
+        mintAmounts[1] = 200;
+        mintAmounts[2] = 300;
+        mintAmounts[3] = 400;
+        mintAmounts[4] = 500;
+
+        uint256[] memory transferAmounts = new uint256[](4);
+        transferAmounts[0] = 50;
+        transferAmounts[1] = 100;
+        transferAmounts[2] = 150;
+        transferAmounts[3] = 200;
+
+        token.batchMint(from, ids, mintAmounts, "");
+
+        vm.prank(from);
+        token.setApprovalForAll(address(this), true);
+
+        token.safeBatchTransferFrom(
+            from,
+            address(0xBEEF),
+            ids,
+            transferAmounts,
+            ""
         );
     }
 
