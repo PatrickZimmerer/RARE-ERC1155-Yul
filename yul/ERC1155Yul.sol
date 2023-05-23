@@ -47,7 +47,12 @@ object "ERC1155Yul" {
             // -------------------------------------------------------- //
             case 0x731133e9 {
                 let to := decodeAsAddress(0)
-                require(to)                             // checks for zero address and reverts
+                // check for not sending to zero address
+                if iszero(to) {
+                    // UNSAFE_RECIPIENT
+                    mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }               // checks for zero address and reverts
                 let tokenId := decodeAsAddress(1)            
                 let amount := decodeAsUint(2)           
                 mint(to, tokenId, amount)
@@ -60,7 +65,12 @@ object "ERC1155Yul" {
             // -------------------------------------------------------- //
             case 0xb48ab8b6 {
                 let to := decodeAsAddress(0)
-                require(to)                                 // checks for zero address and reverts
+                // check for not sending to zero address
+                if iszero(to) {
+                    // UNSAFE_RECIPIENT
+                    mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }                   // checks for zero address and reverts
                 let tokenIdsPointer := decodeAsUint(1)      // gets the pointer to the length
                 let amountsPointer := decodeAsUint(2)       // gets the pointer to the length
                 let data := decodeAsUint(3)
@@ -70,8 +80,8 @@ object "ERC1155Yul" {
                 // require(a.length == b.length) check for same size arrays
                 if iszero(eq(tokenIdsLength, amountsLength)) {
                     // LENGTH_MISMATCH
-                    mstore(0x0, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
-                    revert(0x0, 21)
+                    mstore(0x00, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
+                    revert(0x00, 0x20)
                 }
                 
                 for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
@@ -107,8 +117,8 @@ object "ERC1155Yul" {
                 // require(a.length == b.length) check for same size arrays
                 if iszero(eq(ownersLength, tokenIdsLength)) {
                     // LENGTH_MISMATCH
-                    mstore(0x0, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
-                    revert(0x0, 0x20)
+                    mstore(0x00, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
+                    revert(0x00, 0x20)
                 }
                 // add add 32 bytes for length of array then multiply length with 32 bytes
                 // => 32 bytes + (length * 32 bytes)
@@ -158,17 +168,31 @@ object "ERC1155Yul" {
             case 0xf242432a  {
                 let from := decodeAsAddress(0)
                 let to := decodeAsAddress(1)
-
                 let tokenId := decodeAsUint(2)
                 let amount := decodeAsUint(3)
+
                 // if sender is owner or approved for the "from" address continue
-                require(iszero(or(eq(caller(), from), isApprovedForAll(from, caller()))))
+                if iszero(or(eq(caller(), from), isApprovedForAll(from, caller()))) {
+                    // NOT_AUTHORIZED
+                    mstore(0x00, 0x4e4f545f415554484f52495a4544000000000000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }
+
                 let fromSlot := getNestedMappingSlot(balanceOfMappingSlot(), from, tokenId)
                 let fromBalance := sload(fromSlot)
                 // check for sufficient balance 
-                require(gte(fromBalance, amount))
+                if iszero(gte(fromBalance, amount)) {
+                    // NOT_ENOUGH_BALANCE
+                    mstore(0x00, 0x4e4f545f454e4f5547485f42414c414e43450000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }
+                
                 // check for not sending to zero address
-                require(to)
+                if iszero(to) {
+                    // UNSAFE_RECIPIENT
+                    mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }
                 // already checked for underflow => use sub instead of safeSub
                 sstore(fromSlot, sub(fromBalance, amount))
 
