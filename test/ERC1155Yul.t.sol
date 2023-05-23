@@ -137,7 +137,6 @@ contract ERC1155YulTest is Test {
         assertEq(balance, 840);
     }
 
-    // TODO ASK QUESTIONS WHY OPERATOR IS NOT EMITTED CORRECTLY EVEN THOUGH USED AS ABOVE
     function testBatchMintToEOAAndEmit() public {
         uint256[] memory ids = new uint256[](2);
         ids[0] = 1337;
@@ -147,7 +146,18 @@ contract ERC1155YulTest is Test {
         amounts[0] = 100;
         amounts[1] = 200;
 
-        vm.expectEmit(false, true, true, true);
+        // TODO ASK QUESTIONS WHY IS NOT EMITTED CORRECTLY EVEN THOUGH LOG VALUE IS FINE
+        //data: 0x
+        // 0000000000000000000000000000000000000000000000000000000000000020 0x00 /ptr 1st array
+        // 0000000000000000000000000000000000000000000000000000000000000002 0x20 /len 1st array
+        // 0000000000000000000000000000000000000000000000000000000000000539 0x40 /tokenId 1337
+        // 000000000000000000000000000000000000000000000000000000000000053a 0x60 /tokenId 1338
+        // 00000000000000000000000000000000000000000000000000000000000000a0 0x80 /ptr 2nd array
+        // 0000000000000000000000000000000000000000000000000000000000000002 0xa0 /len 2nd array
+        // 0000000000000000000000000000000000000000000000000000000000000064 0xc0 /amount 100
+        // 00000000000000000000000000000000000000000000000000000000000000c8 0xe0 /amount 200
+        // vm.expectEmit(true, true, true, false); making last param to true fails the test... why
+        vm.expectEmit(true, true, true, false);
         emit TransferBatch(address(this), address(0), alice, ids, amounts);
         token.batchMint(alice, ids, amounts, "");
 
