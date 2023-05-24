@@ -11,9 +11,7 @@ List of supported functions (ERC-1155 standard):
 
 List of non-standard functions:
 
-- :white_check_mark: mint(address to, uint256 id, uint256 amount)
 - :white_check_mark: mint(address to, uint256 id, uint256 amount, bytes calldata data)
-- :white_check_mark: batchMint(address to, uint256 id, uint256 amount)
 - :white_check_mark: batchMint(address to, uint256 id, uint256 amount, bytes calldata data)
 
 ## Repository installation
