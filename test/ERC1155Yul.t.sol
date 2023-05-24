@@ -29,12 +29,15 @@ interface IERC1155 {
         uint256[] values
     );
 
+    // METADATA LOGIC
+    function uri(uint256 id) external view returns (string memory);
+
+    // must be marked back to view function
     function balanceOf(
         address account,
         uint256 id
     ) external view returns (uint256);
 
-    // must be marked back to view function
     function balanceOfBatch(
         address[] calldata accounts,
         uint256[] calldata ids
@@ -64,19 +67,11 @@ interface IERC1155 {
     ) external;
 
     // custom functions
-    function mint(address to, uint256 id, uint256 amount) external;
-
     function mint(
         address to,
         uint256 id,
         uint256 amount,
         bytes calldata
-    ) external;
-
-    function batchMint(
-        address to,
-        uint256[] calldata id,
-        uint256[] calldata amounts
     ) external;
 
     function batchMint(

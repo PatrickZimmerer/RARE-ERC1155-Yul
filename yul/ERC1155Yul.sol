@@ -120,7 +120,7 @@ object "ERC1155Yul" {
                     let owner := calldataloadWith4BytesOffset(add(ownersPointer, mul(add(i, 1), 0x20)))
                     let tokenId := calldataloadWith4BytesOffset(add(tokenIdsPointer, mul(add(i, 1), 0x20)))
                     let amount := getBalanceOfUser(owner, tokenId)
-                    
+
                     mstore(getMemoryPointer(), amount)
                     incrementMemoryPointer()
                 }
@@ -208,6 +208,18 @@ object "ERC1155Yul" {
                 }
                 // pass in: operator, from, to, tokenIds, amounts. last two will be handled inside emit function
                 emitTransferBatch(caller(), from, to, tokenIdsPointer, amountsPointer)
+            }
+            
+            // ---------------------------------------------------------------- //
+            // ------------------------- uri(uint256) ------------------------- //
+            // ---------------------------------------------------------------- //
+            case 0x0e89341C {
+            }
+            
+            // ---------------------------------------------------------------- //
+            // ------------------------ setURI(string) ------------------------ //
+            // ---------------------------------------------------------------- //
+            case 0x02fe5305 {
             }
 
             // If no function selector was found we revert (fallback not implemented)
