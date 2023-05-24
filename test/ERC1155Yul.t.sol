@@ -142,7 +142,7 @@ contract ERC1155YulTest is Test {
     // --------------- UNIT TESTING -------------------- //
     // ------------------------------------------------- //
     function testMintToSelfAndEmit() public {
-        vm.expectEmit(false, true, true, true);
+        vm.expectEmit(true, true, true, true);
         emit TransferSingle(address(this), address(0), alice, 1337, 420);
         token.mint(alice, 1337, 420, "");
         uint256 balance = token.balanceOf(alice, 1337);
@@ -161,18 +161,7 @@ contract ERC1155YulTest is Test {
         amounts[0] = 100;
         amounts[1] = 200;
 
-        // TODO ASK QUESTIONS WHY IS NOT EMITTED CORRECTLY EVEN THOUGH LOG VALUE IS FINE
-        //data: 0x
-        // 0000000000000000000000000000000000000000000000000000000000000020 0x00 /ptr 1st array
-        // 0000000000000000000000000000000000000000000000000000000000000002 0x20 /len 1st array
-        // 0000000000000000000000000000000000000000000000000000000000000539 0x40 /tokenId 1337
-        // 000000000000000000000000000000000000000000000000000000000000053a 0x60 /tokenId 1338
-        // 00000000000000000000000000000000000000000000000000000000000000a0 0x80 /ptr 2nd array
-        // 0000000000000000000000000000000000000000000000000000000000000002 0xa0 /len 2nd array
-        // 0000000000000000000000000000000000000000000000000000000000000064 0xc0 /amount 100
-        // 00000000000000000000000000000000000000000000000000000000000000c8 0xe0 /amount 200
-        // vm.expectEmit(true, true, true, false); making last param to true fails the test... why
-        vm.expectEmit(true, true, true, false);
+        vm.expectEmit(true, true, true, true);
         emit TransferBatch(address(this), address(0), alice, ids, amounts);
         token.batchMint(alice, ids, amounts, "");
 

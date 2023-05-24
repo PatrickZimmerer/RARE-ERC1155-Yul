@@ -52,7 +52,7 @@ object "ERC1155Yul" {
                     // UNSAFE_RECIPIENT
                     mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
                     revert(0x00, 0x20)
-                }               // checks for zero address and reverts
+                }
                 let tokenId := decodeAsAddress(1)            
                 let amount := decodeAsUint(2)           
                 mint(to, tokenId, amount)
@@ -70,14 +70,13 @@ object "ERC1155Yul" {
                     // UNSAFE_RECIPIENT
                     mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
                     revert(0x00, 0x20)
-                }                   // checks for zero address and reverts
+                }
                 let tokenIdsPointer := decodeAsUint(1)      // gets the pointer to the length
                 let amountsPointer := decodeAsUint(2)       // gets the pointer to the length
-                let data := decodeAsUint(3)
                 let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer) 
                 let amountsLength := calldataloadWith4BytesOffset(amountsPointer)
 
-                // require(a.length == b.length) check for same size arrays
+                // check for same size arrays
                 if iszero(eq(tokenIdsLength, amountsLength)) {
                     // LENGTH_MISMATCH
                     mstore(0x00, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
@@ -85,7 +84,7 @@ object "ERC1155Yul" {
                 }
                 
                 for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
-                    // tokenId will be pointer + i (starts at 0) + 1 (to start at 1) and multiply
+                    // tokenId will be pointer + (i + 1) and multiply by 32 bytes
                     // by 32 bytes so first time => pointer + ((0 + 1) * 32 bytes) and so on
                     let tokenId := calldataloadWith4BytesOffset(add(tokenIdsPointer, mul(add(i, 1), 0x20)))
                     let amount := calldataloadWith4BytesOffset(add(amountsPointer, mul(add(i, 1), 0x20)))
@@ -114,22 +113,26 @@ object "ERC1155Yul" {
                 let tokenIdsPointer := decodeAsUint(1)
                 let ownersLength := calldataloadWith4BytesOffset(ownersPointer) 
                 let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer)
-                // require(a.length == b.length) check for same size arrays
+                // check for same size arrays
                 if iszero(eq(ownersLength, tokenIdsLength)) {
                     // LENGTH_MISMATCH
                     mstore(0x00, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
                     revert(0x00, 0x20)
                 }
-                // add add 32 bytes for length of array then multiply length with 32 bytes
-                // => 32 bytes + (length * 32 bytes)
 
+                // add 32 bytes for length of array then multiply length with 32 bytes
+                // => 32 bytes + (length * 32 bytes)
                 let finalMemorySize := add(0x40, mul(tokenIdsLength, 0x20))
-                // store length of array
+
+                // store pointer of array starting at 0x80 (memPointer)
                 mstore(getMemoryPointer(), 0x20)
                 incrementMemoryPointer()
+
+                // store length of array
                 mstore(getMemoryPointer(), tokenIdsLength)
                 incrementMemoryPointer()
                 
+                // loop and get the balances from the given slots & ids and store them
                 for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
                     let owner := calldataloadWith4BytesOffset(add(ownersPointer, mul(add(i, 1), 0x20)))
                     let tokenId := calldataloadWith4BytesOffset(add(tokenIdsPointer, mul(add(i, 1), 0x20)))
@@ -171,7 +174,7 @@ object "ERC1155Yul" {
                 let tokenId := decodeAsUint(2)
                 let amount := decodeAsUint(3)
 
-                // if sender is owner or approved for the "from" address continue
+                // check if sender is owner or approved for the "from" address
                 if iszero(or(eq(caller(), from), isApprovedForAll(from, caller()))) {
                     // NOT_AUTHORIZED
                     mstore(0x00, 0x4e4f545f415554484f52495a4544000000000000000000000000000000000000)
@@ -180,6 +183,7 @@ object "ERC1155Yul" {
 
                 let fromSlot := getNestedMappingSlot(balanceOfMappingSlot(), from, tokenId)
                 let fromBalance := sload(fromSlot)
+
                 // check for sufficient balance 
                 if iszero(gte(fromBalance, amount)) {
                     // NOT_ENOUGH_BALANCE
@@ -193,11 +197,12 @@ object "ERC1155Yul" {
                     mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
                     revert(0x00, 0x20)
                 }
+
                 // already checked for underflow => use sub instead of safeSub
                 sstore(fromSlot, sub(fromBalance, amount))
 
                 let toSlot := getNestedMappingSlot(balanceOfMappingSlot(), to, tokenId)
-                // sload the old balance and safeAdd "amount" for overflow protection
+                // sload the old balance and safeAdd "amount" then store the result as the new balance
                 sstore(toSlot, safeAdd(sload(toSlot), amount))
                 emitTransferSingle(caller(), from, to, tokenId, amount)
             }                
@@ -206,8 +211,74 @@ object "ERC1155Yul" {
             // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes) //
             // ---------------------------------------------------------------- //
             case 0x2eb2c2d6  {
+            // function safeBatchTransferFrom(address from, address to, uint256[] calldata ids, 
+            //                                uint256[] calldata amounts
+                let from := decodeAsAddress(0)
+                let to := decodeAsAddress(1)
 
+                // get pointers where length of arrays are stored
+                let tokenIdsPointer := decodeAsUint(3)
+                let amountsPointer := decodeAsUint(4)
+                let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer) 
+                let amountsLength := calldataloadWith4BytesOffset(amountsPointer)
+
+                // check if sender is owner or approved for the "from" address
+                if iszero(or(eq(caller(), from), isApprovedForAll(from, caller()))) {
+                    // NOT_AUTHORIZED
+                    mstore(0x00, 0x4e4f545f415554484f52495a4544000000000000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }
+
+                // check for same size arrays
+                if iszero(eq(tokenIdsLength, amountsLength)) {
+                    // LENGTH_MISMATCH
+                    mstore(0x00, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }
+
+                // check for not sending to zero address
+                if iszero(to) {
+                    // UNSAFE_RECIPIENT
+                    mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }
+                
+                // loop and get the balances from the given slots & ids and store them
+                // for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
+                //     let owner := calldataloadWith4BytesOffset(add(ownersPointer, mul(add(i, 1), 0x20)))
+                //     let tokenId := calldataloadWith4BytesOffset(add(tokenIdsPointer, mul(add(i, 1), 0x20)))
+                    
+                //     let amount := getBalanceOfUser(owner, tokenId)
+                //     mstore(getMemoryPointer(), amount)
+                //     incrementMemoryPointer()
+                // }
+            // 
+                //   for (uint256 i = 0; i < ids.length; ) {
+                    //   id = ids[i];
+                    //   amount = amounts[i];
+            // 
+                    //   balanceOf[from][id] -= amount;
+                    //   balanceOf[to][id] += amount;
+            // 
+                    //   An array can't have a total length
+                    //   larger than the max uint256 value.
+                    //   unchecked {
+                        //   ++i;
+                    //   }
+                //   }
+            // 
+                //   emit TransferBatch(msg.sender, from, to, ids, amounts);
+            // 
+                //   require(
+                    //   to.code.length == 0
+                        //   ? to != address(0)
+                        //   : ERC1155TokenReceiver(to).onERC1155BatchReceived(msg.sender, from, ids, amounts, data) ==
+                            //   ERC1155TokenReceiver.onERC1155BatchReceived.selector,
+                    //   "UNSAFE_RECIPIENT"
+                //   );
+            //   }
             }
+
             // If no function selector was found we revert (fallback not implemented)
             default {
                 revert(0, 0)
@@ -217,7 +288,6 @@ object "ERC1155Yul" {
             /* ---------------- FREQUENTLY USED FUNCTIONS --------------- */
             /* ---------------------------------------------------------- */
             function mint(to, tokenId, amount) {
-                // gets the storage slot based on the address minting to & tokenId
                 let slot := getNestedMappingSlot(balanceOfMappingSlot(), to, tokenId)
                 // store at balanceSlot (old Balance stored in that slot + amount minted)
                 sstore(slot, safeAdd(sload(slot), amount))
@@ -287,27 +357,30 @@ object "ERC1155Yul" {
                 let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer) 
                 let amountsLength := calldataloadWith4BytesOffset(amountsPointer)
 
-                // add lengths of arrays and multiply with 32 bytes, then add 64 bytes for length
-                // => 64 bytes + ((length * 2) * 32 bytes)
-                let finalMemorySize := add(0x40, mul(mul(tokenIdsLength, 2), 0x20))
-                
-                // start at 0x80
-                let tokenIdsStart := getMemoryPointer()
-                // start at 0x80 + ((length + 1) * 32 bytes)
-                let amountsStart := add(tokenIdsStart, mul(add(1, amountsLength), 0x20))
+                // add lengths of arrays and multiply with 32 bytes, then add 64 bytes for ptrs + lengths
+                // => 128 bytes + ((length * 2) * 32 bytes)
+                let finalMemorySize := add(0x80, mul(mul(tokenIdsLength, 2), 0x20))
+
+                // start at 0x40 (2pointers) + ((length + 1) * 32 bytes)
+                let tokenIdsStart := 0x40
+                let amountsStart := add(0x40, mul(add(1, amountsLength), 0x20))
+
                 // store the lengths in their starting postions
-                mstore(tokenIdsStart, tokenIdsLength)
-                mstore(amountsStart, amountsLength)
+                mstore(0x00, tokenIdsStart)           // store 0x40 (pointer of 1st arr starts after the 2 ptrs)
+                mstore(0x20, amountsStart)            // store where amounts will start (2nd pointer)
+                mstore(tokenIdsStart, tokenIdsLength) // store the length of tokenIds array
+                mstore(amountsStart, amountsLength)   // store length of amounts array
                 for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
-                    // tokenId will be pointer + i (starts at 0) + 1 (to start at 1) and multiply
-                    // by 32 bytes so first time => pointer + ((0 + 1) * 32 bytes) and so on
+                    // tokenId / amount will be at pointer + (i + 1) then multiply by 32 bytes
+                    // so first time => pointer + ((0 + 1) * 32 bytes) and so on
                     let tokenId := calldataloadWith4BytesOffset(add(tokenIdsPointer, mul(add(i, 1), 0x20)))
                     let amount := calldataloadWith4BytesOffset(add(amountsPointer, mul(add(i, 1), 0x20)))
                     
-                    mstore(add(tokenIdsStart, mul(add(i, 1), 0x20)), tokenId)
+                    // stroe tokenId beginning at 0x60 to account for the 2ptrs + length 1st array
+                    mstore(mul(add(i, 3), 0x20), tokenId)
                     mstore(add(amountsStart, mul(add(i, 1), 0x20)), amount)
                 }
-                log4(0x80, finalMemorySize, signatureHash, operator, from, to)
+                log4(0x00, finalMemorySize, signatureHash, operator, from, to)
             }
 
             function emitApprovalForAll(owner, operator, isApproved) {
