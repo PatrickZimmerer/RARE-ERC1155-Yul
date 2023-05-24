@@ -211,14 +211,12 @@ object "ERC1155Yul" {
             // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes) //
             // ---------------------------------------------------------------- //
             case 0x2eb2c2d6  {
-            // function safeBatchTransferFrom(address from, address to, uint256[] calldata ids, 
-            //                                uint256[] calldata amounts
                 let from := decodeAsAddress(0)
                 let to := decodeAsAddress(1)
 
                 // get pointers where length of arrays are stored
-                let tokenIdsPointer := decodeAsUint(3)
-                let amountsPointer := decodeAsUint(4)
+                let tokenIdsPointer := decodeAsUint(2)
+                let amountsPointer := decodeAsUint(3)
                 let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer) 
                 let amountsLength := calldataloadWith4BytesOffset(amountsPointer)
 
@@ -244,39 +242,19 @@ object "ERC1155Yul" {
                 }
                 
                 // loop and get the balances from the given slots & ids and store them
-                // for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
-                //     let owner := calldataloadWith4BytesOffset(add(ownersPointer, mul(add(i, 1), 0x20)))
-                //     let tokenId := calldataloadWith4BytesOffset(add(tokenIdsPointer, mul(add(i, 1), 0x20)))
-                    
-                //     let amount := getBalanceOfUser(owner, tokenId)
-                //     mstore(getMemoryPointer(), amount)
-                //     incrementMemoryPointer()
-                // }
-            // 
-                //   for (uint256 i = 0; i < ids.length; ) {
-                    //   id = ids[i];
-                    //   amount = amounts[i];
-            // 
-                    //   balanceOf[from][id] -= amount;
-                    //   balanceOf[to][id] += amount;
-            // 
-                    //   An array can't have a total length
-                    //   larger than the max uint256 value.
-                    //   unchecked {
-                        //   ++i;
-                    //   }
-                //   }
-            // 
-                //   emit TransferBatch(msg.sender, from, to, ids, amounts);
-            // 
-                //   require(
-                    //   to.code.length == 0
-                        //   ? to != address(0)
-                        //   : ERC1155TokenReceiver(to).onERC1155BatchReceived(msg.sender, from, ids, amounts, data) ==
-                            //   ERC1155TokenReceiver.onERC1155BatchReceived.selector,
-                    //   "UNSAFE_RECIPIENT"
-                //   );
-            //   }
+                for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
+                    // get tokenId and amount from calldata
+                    let tokenId := calldataloadWith4BytesOffset(add(tokenIdsPointer, mul(add(i, 1), 0x20)))
+                    let amount := calldataloadWith4BytesOffset(add(amountsPointer, mul(add(i, 1), 0x20)))
+                    // get mapping slots to store the new balances
+                    let fromSlot := getNestedMappingSlot(balanceOfMappingSlot(), from, tokenId)
+                    let toSlot := getNestedMappingSlot(balanceOfMappingSlot(), to, tokenId)
+                    // get oldBalance from slot and safeAdd/Sub the amount to revert on overflow / insufficient balance
+                    sstore(fromSlot, safeSub(sload(fromSlot), amount))
+                    sstore(toSlot, safeAdd(sload(toSlot), amount))
+                }
+                // pass in: operator, from, to, tokenIds, amounts. last two will be handled inside emit function
+                emitTransferBatch(caller(), from, to, tokenIdsPointer, amountsPointer)
             }
 
             // If no function selector was found we revert (fallback not implemented)
