@@ -202,8 +202,12 @@ object "ERC1155Yul" {
                     let fromSlot := getNestedMappingSlot(balanceOfMappingSlot(), from, tokenId)
                     let toSlot := getNestedMappingSlot(balanceOfMappingSlot(), to, tokenId)
                     let fromBalance := getBalanceOfUser(from, tokenId)
-                    // get oldBalance from slot and safeAdd/Sub the amount to revert on overflow / insufficient balance
-                    sstore(fromSlot, safeSub(sload(fromSlot), amount))
+
+                    // revert with NOT_ENOUGH_BALANCE => infos for user + underflow protection
+                    checkForSufficientBalance(fromBalance, amount)
+
+                    // get oldBalance from slot and safeAdd the amount + overflow protection
+                    sstore(fromSlot, sub(sload(fromSlot), amount))
                     sstore(toSlot, safeAdd(sload(toSlot), amount))
                 }
                 // pass in: operator, from, to, tokenIds, amounts. last two will be handled inside emit function
