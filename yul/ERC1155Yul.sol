@@ -47,14 +47,11 @@ object "ERC1155Yul" {
             // -------------------------------------------------------- //
             case 0x731133e9 {
                 let to := decodeAsAddress(0)
-                // check for not sending to zero address
-                if iszero(to) {
-                    // UNSAFE_RECIPIENT
-                    mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
-                    revert(0x00, 0x20)
-                }
+                checkForSendingToUnsafeRecipient(to)
+
                 let tokenId := decodeAsAddress(1)            
-                let amount := decodeAsUint(2)           
+                let amount := decodeAsUint(2)    
+
                 mint(to, tokenId, amount)
                 // operator == caller() when minting, from == zero addr, rest is given as input
                 emitTransferSingle(caller(), 0, to, tokenId, amount)
@@ -65,23 +62,15 @@ object "ERC1155Yul" {
             // -------------------------------------------------------- //
             case 0xb48ab8b6 {
                 let to := decodeAsAddress(0)
-                // check for not sending to zero address
-                if iszero(to) {
-                    // UNSAFE_RECIPIENT
-                    mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
-                    revert(0x00, 0x20)
-                }
                 let tokenIdsPointer := decodeAsUint(1)      // gets the pointer to the length
                 let amountsPointer := decodeAsUint(2)       // gets the pointer to the length
                 let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer) 
                 let amountsLength := calldataloadWith4BytesOffset(amountsPointer)
 
-                // check for same size arrays
-                if iszero(eq(tokenIdsLength, amountsLength)) {
-                    // LENGTH_MISMATCH
-                    mstore(0x00, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
-                    revert(0x00, 0x20)
-                }
+
+                checkForSendingToUnsafeRecipient(to)
+
+                checkForSameLength(tokenIdsLength, amountsLength)
                 
                 for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
                     // tokenId will be pointer + (i + 1) and multiply by 32 bytes
@@ -98,10 +87,8 @@ object "ERC1155Yul" {
             // ------------- balanceOf(address,uint256) --------------- //
             // -------------------------------------------------------- //
             case 0x00fdd58e {
-                // puts in the "account" & "tokenId" to get the value in the nested mapping
-                let balanceOfUser := getBalanceOfUser(decodeAsAddress(0), decodeAsUint(1))
-                // saves value to mem and returns
-                returnUint(balanceOfUser)                      
+                // puts in the "account" & "tokenId" to get the value and returns the result
+                returnUint(getBalanceOfUser(decodeAsAddress(0), decodeAsUint(1)))                      
             }
 
             // -------------------------------------------------------- //
@@ -113,12 +100,8 @@ object "ERC1155Yul" {
                 let tokenIdsPointer := decodeAsUint(1)
                 let ownersLength := calldataloadWith4BytesOffset(ownersPointer) 
                 let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer)
-                // check for same size arrays
-                if iszero(eq(ownersLength, tokenIdsLength)) {
-                    // LENGTH_MISMATCH
-                    mstore(0x00, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
-                    revert(0x00, 0x20)
-                }
+                
+                checkForSameLength(ownersLength, tokenIdsLength)
 
                 // add 32 bytes for length of array then multiply length with 32 bytes
                 // => 32 bytes + (length * 32 bytes)
@@ -136,8 +119,8 @@ object "ERC1155Yul" {
                 for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
                     let owner := calldataloadWith4BytesOffset(add(ownersPointer, mul(add(i, 1), 0x20)))
                     let tokenId := calldataloadWith4BytesOffset(add(tokenIdsPointer, mul(add(i, 1), 0x20)))
-                    
                     let amount := getBalanceOfUser(owner, tokenId)
+                    
                     mstore(getMemoryPointer(), amount)
                     incrementMemoryPointer()
                 }
@@ -174,29 +157,14 @@ object "ERC1155Yul" {
                 let tokenId := decodeAsUint(2)
                 let amount := decodeAsUint(3)
 
-                // check if sender is owner or approved for the "from" address
-                if iszero(or(eq(caller(), from), isApprovedForAll(from, caller()))) {
-                    // NOT_AUTHORIZED
-                    mstore(0x00, 0x4e4f545f415554484f52495a4544000000000000000000000000000000000000)
-                    revert(0x00, 0x20)
-                }
 
                 let fromSlot := getNestedMappingSlot(balanceOfMappingSlot(), from, tokenId)
                 let fromBalance := sload(fromSlot)
 
-                // check for sufficient balance 
-                if iszero(gte(fromBalance, amount)) {
-                    // NOT_ENOUGH_BALANCE
-                    mstore(0x00, 0x4e4f545f454e4f5547485f42414c414e43450000000000000000000000000000)
-                    revert(0x00, 0x20)
-                }
-                
-                // check for not sending to zero address
-                if iszero(to) {
-                    // UNSAFE_RECIPIENT
-                    mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
-                    revert(0x00, 0x20)
-                }
+                // check for sufficient balance, correct to address & approval / ownership 
+                checkForSufficientBalance(fromBalance, amount)
+                checkForApprovalOfSender(from)
+                checkForSendingToUnsafeRecipient(to)
 
                 // already checked for underflow => use sub instead of safeSub
                 sstore(fromSlot, sub(fromBalance, amount))
@@ -220,26 +188,10 @@ object "ERC1155Yul" {
                 let tokenIdsLength := calldataloadWith4BytesOffset(tokenIdsPointer) 
                 let amountsLength := calldataloadWith4BytesOffset(amountsPointer)
 
-                // check if sender is owner or approved for the "from" address
-                if iszero(or(eq(caller(), from), isApprovedForAll(from, caller()))) {
-                    // NOT_AUTHORIZED
-                    mstore(0x00, 0x4e4f545f415554484f52495a4544000000000000000000000000000000000000)
-                    revert(0x00, 0x20)
-                }
-
-                // check for same size arrays
-                if iszero(eq(tokenIdsLength, amountsLength)) {
-                    // LENGTH_MISMATCH
-                    mstore(0x00, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
-                    revert(0x00, 0x20)
-                }
-
-                // check for not sending to zero address
-                if iszero(to) {
-                    // UNSAFE_RECIPIENT
-                    mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
-                    revert(0x00, 0x20)
-                }
+                // check for same length arrays, correct receiver & approval / ownership 
+                checkForApprovalOfSender(from)
+                checkForSameLength(tokenIdsLength, amountsLength)
+                checkForSendingToUnsafeRecipient(to)
                 
                 // loop and get the balances from the given slots & ids and store them
                 for { let i := 0 } lt(i, tokenIdsLength) { i := add(i, 1) } {
@@ -249,6 +201,7 @@ object "ERC1155Yul" {
                     // get mapping slots to store the new balances
                     let fromSlot := getNestedMappingSlot(balanceOfMappingSlot(), from, tokenId)
                     let toSlot := getNestedMappingSlot(balanceOfMappingSlot(), to, tokenId)
+                    let fromBalance := getBalanceOfUser(from, tokenId)
                     // get oldBalance from slot and safeAdd/Sub the amount to revert on overflow / insufficient balance
                     sstore(fromSlot, safeSub(sload(fromSlot), amount))
                     sstore(toSlot, safeAdd(sload(toSlot), amount))
@@ -279,6 +232,39 @@ object "ERC1155Yul" {
             function isApprovedForAll(account,operator) -> isApproved {
                 let slot := getNestedMappingSlot(isApprovedForAllMappingSlot(), account, operator)
                 isApproved := sload(slot)
+            }
+
+            function checkForSameLength(length1, length2) {
+                if iszero(eq(length1, length2)) {
+                    // revert with: LENGTH_MISMATCH
+                    mstore(0x00, 0x4c454e4754485f4d49534d415443480000000000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }
+            }
+
+            function checkForSendingToUnsafeRecipient(to) {
+                if iszero(to) {
+                    // revert with: UNSAFE_RECIPIENT
+                    mstore(0x00, 0x554e534146455f524543495049454e5400000000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }
+            }
+
+            function checkForApprovalOfSender(from) {
+                // check if sender is not the owner or not approved for the "from" address
+                if iszero(or(eq(caller(), from), isApprovedForAll(from, caller()))) {
+                    // revert with: NOT_AUTHORIZED
+                    mstore(0x00, 0x4e4f545f415554484f52495a4544000000000000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }
+            }
+
+            function checkForSufficientBalance(fromBalance, amount) {
+                if iszero(gte(fromBalance, amount)) {
+                    // revert with: NOT_ENOUGH_BALANCE
+                    mstore(0x00, 0x4e4f545f454e4f5547485f42414c414e43450000000000000000000000000000)
+                    revert(0x00, 0x20)
+                }
             }
 
             /* ---------------------------------------------------------- */
