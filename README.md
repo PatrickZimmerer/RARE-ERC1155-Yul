@@ -8,11 +8,34 @@ List of supported functions (ERC-1155 standard):
 - :white_check_mark: isApprovedForAll(address \_owner, address \_operator)
 - :white_check_mark: safeTransferFrom(address \_from, address \_to, uint256 \_id, uint256 \_value, bytes calldata \_data)
 - :white_check_mark: safeBatchTransferFrom(address \_from, address \_to, uint256[] calldata \_ids, uint256[] calldata \_values, bytes calldata \_data)
+- :white_check_mark: setURI(address \_from, address \_to, uint256[] calldata \_ids, uint256[] calldata \_values, bytes calldata \_data)
 
 List of non-standard functions:
 
 - :white_check_mark: mint(address to, uint256 id, uint256 amount, bytes calldata data)
 - :white_check_mark: batchMint(address to, uint256 id, uint256 amount, bytes calldata data)
+
+List of events:
+
+- :white_check_mark: event TransferBatch(
+  address indexed operator,
+  address indexed from,
+  address indexed to,
+  uint256[] ids,
+  uint256[] values
+  );
+- :white_check_mark: event TransferSingle(
+  address indexed operator,
+  address indexed from,
+  address indexed to,
+  uint256 id,
+  uint256 value
+  );
+- :white_check_mark: event ApprovalForAll(
+  address indexed account,
+  address indexed operator,
+  bool approved
+  );
 
 ## Repository installation
 
