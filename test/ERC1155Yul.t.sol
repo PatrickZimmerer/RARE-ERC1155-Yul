@@ -32,6 +32,8 @@ interface IERC1155 {
     // METADATA LOGIC
     function uri(uint256 id) external view returns (string memory);
 
+    function setURI(string memory uri) external;
+
     // must be marked back to view function
     function balanceOf(
         address account,
@@ -561,6 +563,18 @@ contract ERC1155YulTest is Test {
                 token.balanceOf(normalizedTos[i], normalizedIds[i])
             );
         }
+    }
+
+    function testSetAndGetUri(string memory uri) public {
+        vm.assume(bytes(uri).length != 0);
+
+        //set URI
+        token.setURI(uri);
+
+        //get URI
+        string memory uriReturned = token.uri(1);
+
+        assertEq(uriReturned, uri);
     }
 
     // ------------------------------------------------- //
