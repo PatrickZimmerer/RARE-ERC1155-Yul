@@ -218,6 +218,11 @@ object "ERC1155Yul" {
             // ------------------------- uri(uint256) ------------------------- //
             // ---------------------------------------------------------------- //
             case 0x0e89341C {
+                let stringLength := sload(uriLengthSlot())
+                mstore(0, uriLengthSlot())    // store storage slot 2 in mem to get hash (starting position)
+                let stringStartingPosition := keccak256(0, 0x20) // hash of value stored above will be start
+                // let totalMemorySize := 
+                returnMemory(0, totalMemorySize)
             }
             
             // ---------------------------------------------------------------- //
@@ -420,11 +425,6 @@ object "ERC1155Yul" {
             function returnUint(v) {
                 mstore(0, v)
                 return(0, 0x20)
-            }
-
-            // @dev helper functino that returns true (uint of 1 === true)
-            function returnTrue() {
-                returnUint(1)
             }
 
             /* ------------------------------------------------------- */
