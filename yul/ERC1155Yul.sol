@@ -227,6 +227,7 @@ object "ERC1155Yul" {
                 let startingSlot := keccak256(0, 0x20) // get hash of storage slot
 
                 let slotsAmount := div(stringLength, 0x20) // get amount of storage slots the uri takes up
+                // when % 32 is > 1 => add another slot to account for the rest from above or if < 32
                 if mod(stringLength, 0x20) {
                     slotsAmount := add(slotsAmount, 1)
                 }
@@ -245,6 +246,28 @@ object "ERC1155Yul" {
             // ------------------------ setURI(string) ------------------------ //
             // ---------------------------------------------------------------- //
             case 0x02fe5305 {
+                // get pointer & length of string
+                let stringLengthPointer := decodeAsUint(0)
+                let stringLength := calldataloadWith4BytesOffset(stringLengthPointer)
+
+                mstore(0, uriLengthSlot())  // store storage slot of uri in memory to get hash
+                let stringStorageSlot := keccak256(0, 0x20) // get hash of storage slot
+
+                let slotsAmount := div(stringLength, 0x20) // get amount of storage slots the uri takes up
+                // when % 32 is > 1 => add another slot to account for the rest from above or if < 32
+                if mod(stringLength, 0x20) {
+                    slotsAmount := add(slotsAmount, 1)
+                }
+                // if slotsAmount > 1 => loop
+                if gt(slotsAmount, 1) {
+                    let startOfStorage := 
+                    // loop over slots amount and store all parts of the string in memory
+                    for { let i := 0 } lt(i, slotsAmount) { i := add(i, 1) } {
+                        let partialString := sload(safeAdd(startingSlot,i))
+                        mstore(getMemoryPointer(), partialString)
+                        incrementMemoryPointer()
+                    }
+                }
             }
 
             // If no function selector was found we revert (fallback not implemented)
