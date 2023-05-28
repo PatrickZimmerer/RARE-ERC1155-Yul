@@ -313,6 +313,18 @@ contract ERC1155YulTest is Test {
         assertEq(token.balanceOf(address(0xBEEF), 1341), 250);
     }
 
+    function testSetAndGetUri() public {
+        //set URI
+        token.setURI("");
+        //get URI
+        string memory uriReturned = token.uri(1);
+        assertEq(uriReturned, "");
+        token.setURI("Test");
+        //get URI
+        uriReturned = token.uri(1);
+        assertEq(uriReturned, "Test");
+    }
+
     // ------------------------------------------------- //
     // --------------- FUZZ TESTING -------------------- //
     // ------------------------------------------------- //
@@ -565,12 +577,10 @@ contract ERC1155YulTest is Test {
         }
     }
 
-    function testSetAndGetUri(string memory uri) public {
+    function test_Fuzz_SetAndGetUri(string memory uri) public {
         vm.assume(bytes(uri).length != 0);
-
         //set URI
         token.setURI(uri);
-
         //get URI
         string memory uriReturned = token.uri(1);
 
