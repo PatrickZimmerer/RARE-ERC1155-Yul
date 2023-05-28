@@ -219,10 +219,26 @@ object "ERC1155Yul" {
             // ---------------------------------------------------------------- //
             case 0x0e89341C {
                 let stringLength := sload(uriLengthSlot())
-                mstore(0, uriLengthSlot())    // store storage slot 2 in mem to get hash (starting position)
-                let stringStartingPosition := keccak256(0, 0x20) // hash of value stored above will be start
-                // let totalMemorySize := 
-                returnMemory(0, totalMemorySize)
+                let startOfMemory := getMemoryPointer()
+                mstore(startOfMemory, 0x20)  // store pointer to where the string will start
+                mstore(add(startOfMemory, 0x20), stringLength) // store string length
+                setMemoryPointer(add(startOfMemory, 0x40)) // advance memory pointer to prepare for loop
+                mstore(0, uriLengthSlot())  // store storage slot of uri in memory to get hash
+                let startingSlot := keccak256(0, 0x20) // get hash of storage slot
+
+                let slotsAmount := div(stringLength, 0x20) // get amount of storage slots the uri takes up
+                if mod(stringLength, 0x20) {
+                    slotsAmount := add(slotsAmount, 1)
+                }
+
+                // loop over slots amount and store all parts of the string in memory
+                for { let i := 0 } lt(i, slotsAmount) { i := add(i, 1) } {
+                    let partialString := sload(safeAdd(startingSlot,i))
+                    mstore(getMemoryPointer(), partialString)
+                    incrementMemoryPointer()
+                }
+
+                returnMemory(startOfMemory, getMemoryPointer())
             }
             
             // ---------------------------------------------------------------- //
