@@ -8,6 +8,7 @@ List of supported functions (ERC-1155 standard):
 - :white_check_mark: isApprovedForAll(address \_owner, address \_operator)
 - :white_check_mark: safeTransferFrom(address \_from, address \_to, uint256 \_id, uint256 \_value, bytes calldata \_data)
 - :white_check_mark: safeBatchTransferFrom(address \_from, address \_to, uint256[] calldata \_ids, uint256[] calldata \_values, bytes calldata \_data)
+- :white_check_mark: uri(uint256 \_id)
 - :white_check_mark: setURI(address \_from, address \_to, uint256[] calldata \_ids, uint256[] calldata \_values, bytes calldata \_data)
 
 List of non-standard functions:

@@ -413,7 +413,7 @@ object "ERC1155Yul" {
                 log3(0, 0x20, signatureHash, owner, operator)
             }
 
-            function emitURI(stringValue, id) {
+            function emitURI(stringPointer, id) {
                 // keccak256 of "URI(string,uint256)"
                 let signatureHash := 0x6bb7ff708619ba0610cba295a58592e0451dee2622938c8755667688daf3529b
                 // TODO Store values of arrays in memory and get length to log2 later
