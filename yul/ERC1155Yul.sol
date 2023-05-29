@@ -247,26 +247,25 @@ object "ERC1155Yul" {
             // ---------------------------------------------------------------- //
             case 0x02fe5305 {
                 // get pointer & length of string
-                let stringLengthPointer := decodeAsUint(0)
-                let stringLength := calldataloadWith4BytesOffset(stringLengthPointer)
+                let stringPointer := decodeAsUint(0)
+                let stringLength := calldataloadWith4BytesOffset(stringPointer)
 
                 mstore(0, uriLengthSlot())  // store storage slot of uri in memory to get hash
                 let stringStorageSlot := keccak256(0, 0x20) // get hash of storage slot
+                
+                sstore(uriLengthSlot(), stringLength)  // store string length in uriLengthSlot
 
                 let slotsAmount := div(stringLength, 0x20) // get amount of storage slots the uri takes up
-                // when % 32 is > 1 => add another slot to account for the rest from above or if < 32
+                // when % 32 is >= 1 -> add another slot to account for the rest, or if < 32
                 if mod(stringLength, 0x20) {
                     slotsAmount := add(slotsAmount, 1)
                 }
-                // if slotsAmount > 1 => loop
-                if gt(slotsAmount, 1) {
-                    let startOfStorage := 
-                    // loop over slots amount and store all parts of the string in memory
-                    for { let i := 0 } lt(i, slotsAmount) { i := add(i, 1) } {
-                        let partialString := sload(safeAdd(startingSlot,i))
-                        mstore(getMemoryPointer(), partialString)
-                        incrementMemoryPointer()
-                    }
+                // loop over slots amount and store all parts of the string in memory
+                for { let i := 0 } lt(i, slotsAmount) { i := add(i, 1) } {
+                    // get calldata at ((i + 1) * 32 bytes) + stringPointer for each storage slot
+                    let partialString := calldataloadWith4BytesOffset(add(mul(0x20, add(i, 1)), stringPointer))
+                    // and store at hash of uriLengthSlot => increment for each partial string
+                    sstore(add(stringStorageSlot, i), partialString)
                 }
             }
 
